@@ -1,7 +1,6 @@
 import membershipModel from "./models/membership.model.js";
 
 export default class MembershipDao {
-
     get = (params = {}) => {
         return membershipModel.find(params);
     }
@@ -22,26 +21,11 @@ export default class MembershipDao {
         return membershipModel.findByIdAndDelete(id);
     }
 
-    incrementUsedClasses = (id) => {
-        return membershipModel.findByIdAndUpdate(
-            id,
-            { $inc: { usedClassesThisWeek: 1 } },
-            { new: true }
-        );
+    updateRaw = (id, operators) => {
+        return membershipModel.findByIdAndUpdate(id, operators, { new: true });
     }
-
-    resetWeeklyCounters = (startOfNewWeek) => {
-        return membershipModel.updateMany(
-            {
-                status: 'active',
-                currentWeek: { $lt: startOfNewWeek }
-            },
-            {
-                $set: {
-                    usedClassesThisWeek: 0,
-                    currentWeek: startOfNewWeek
-                }
-            }
-        );
+    
+    updateMany = (filter, operators) => {
+        return membershipModel.updateMany(filter, operators);
     }
 }

@@ -1,13 +1,12 @@
 import userModel from "./models/users.model.js";
 
 export default class UsersDao {
-
-    get = (params = {}, populate = '') => {
-        return userModel.find(params).populate(populate);
+    get = (params = {}) => {
+        return userModel.find(params);
     }
 
-    getBy = (params, populate = '') => {
-        return userModel.findOne(params).populate(populate);
+    getBy = (params) => {
+        return userModel.findOne(params);
     }
 
     save = (doc) => {
@@ -17,7 +16,7 @@ export default class UsersDao {
     update = (id, doc) => {
         return userModel.findByIdAndUpdate(id, { $set: doc }, { new: true });
     }
-
+    
     delete = (id) => {
         return userModel.findByIdAndDelete(id);
     }

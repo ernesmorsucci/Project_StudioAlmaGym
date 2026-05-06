@@ -1,7 +1,7 @@
 import classModel from "./models/class.model.js";
 
 export default class ClassDao {
-
+    
     get = (params = {}) => {
         return classModel.find(params);
     }
@@ -22,11 +22,7 @@ export default class ClassDao {
         return classModel.findByIdAndDelete(id);
     }
 
-    incrementOccupiedQuota = (id, value) => {
-        return classModel.findByIdAndUpdate(
-            id,
-            { $inc: { occupiedQuota: value } },
-            { new: true }
-        );
+    updateRaw = (id, operators) => {
+        return classModel.findByIdAndUpdate(id, operators, { new: true });
     }
 }

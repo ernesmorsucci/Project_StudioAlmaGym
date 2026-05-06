@@ -1,7 +1,6 @@
 import planModel from "./models/plan.model.js";
 
 export default class PlanDao {
-
     get = (params = {}) => {
         return planModel.find(params);
     }
@@ -17,7 +16,7 @@ export default class PlanDao {
     update = (id, doc) => {
         return planModel.findByIdAndUpdate(id, { $set: doc }, { new: true });
     }
-
+    
     delete = (id) => {
         return planModel.findByIdAndDelete(id);
     }

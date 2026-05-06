@@ -1,7 +1,6 @@
 import paymentModel from "./models/payment.model.js";
 
 export default class PaymentDao {
-
     get = (params = {}) => {
         return paymentModel.find(params);
     }
@@ -21,16 +20,8 @@ export default class PaymentDao {
     delete = (id) => {
         return paymentModel.findByIdAndDelete(id);
     }
-
-    markAsPaid = (id, method) => {
-        return paymentModel.findByIdAndUpdate(
-            id,
-            {
-                status: 'paid',
-                method: method,
-                date: new Date()
-            },
-            { new: true }
-        );
+    
+    updateRaw = (id, operators) => {
+        return paymentModel.findByIdAndUpdate(id, operators, { new: true });
     }
 }
