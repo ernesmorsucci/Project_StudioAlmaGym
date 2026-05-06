@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
-
+ 
 const collection = 'RecurrentSchedule';
-
+ 
 const schema = new mongoose.Schema({
     name:{
         type: String,
@@ -17,7 +17,7 @@ const schema = new mongoose.Schema({
         min: 0, max: 6
     }],
     startTime:{
-        type: string,
+        type: String,        
         required: true
     },
     endTime:{
@@ -29,11 +29,12 @@ const schema = new mongoose.Schema({
         required: true
     },
     isActive:{
-        type: bool,
+        type: Boolean,       
         default: true
     }
 }, { timestamps: true });
-
-const recurrentScheduleModel = mongoose.model(collection,schema);
-
+ 
+const recurrentScheduleModel = mongoose.model(collection, schema);
+ 
 export default recurrentScheduleModel;
+ 

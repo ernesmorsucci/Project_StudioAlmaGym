@@ -29,7 +29,7 @@ const schema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    OcupedQuota:{
+    occupiedQuota:{
         type: Number,
         default: 0
     },

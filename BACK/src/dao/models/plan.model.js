@@ -11,13 +11,13 @@ const schema = new mongoose.Schema({
         type: Number,
         required: true
     },
-    price:[{
+    price:[{                    //porque array? 
         type: Number,
         required: true
     }],
     isActive:{
         type: Boolean,
-        defaul: true
+        default: true
     }
 }, { timestamps: true });
 

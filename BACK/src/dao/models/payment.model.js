@@ -14,7 +14,7 @@ const schema = new mongoose.Schema({
         required: true
     },
     planId:[{
-        type: mongoose.SchemaTypes.ObjectId,
+        type: mongoose.SchemaTypes.ObjectId,    //porque array?
         ref: 'Plan',
         required: true
     }],
@@ -35,7 +35,7 @@ const schema = new mongoose.Schema({
         enum: ['pending','paid','expired'],
         default: 'pending'
     },
-    metod:{
+    method:{
         type: String,
         required: true
     }

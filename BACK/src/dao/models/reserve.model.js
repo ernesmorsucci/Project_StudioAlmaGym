@@ -24,7 +24,7 @@ const schema = new mongoose.Schema({
         default: 'pending'
     },
     waitingPosition:{
-        type: String,
+        type: Number,   //modificado a number
         required: true
     }
 }, { timestamps: true });

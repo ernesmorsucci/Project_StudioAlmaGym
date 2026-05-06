@@ -15,7 +15,7 @@ const schema = new mongoose.Schema({
     receivers:{
         type: String
     },
-    sudentsIds:[{
+    studentIds:[{            
         type: mongoose.SchemaTypes.ObjectId,
         ref: 'User'
     }],
@@ -25,7 +25,7 @@ const schema = new mongoose.Schema({
     },
     date:{
         type: Date,
-        default: Date.now()
+        default: Date.now
     }
 }, { timestamps: true });
 
