@@ -1,8 +1,9 @@
-import UsersRepository from "../repository/users.repository.js";
+// import UsersRepository from "../repository/users.repository.js";
+import { userService } from "../services/index.service.js";
 import { createHash, isValidPassword } from "../utils/hash.js";
 import jwt from "jsonwebtoken";
 
-const usersRepository = new UsersRepository();
+// const usersRepository = new UsersRepository();
 
 if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET no definido en .env");
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -11,7 +12,7 @@ export const register = async (req, res) => {
     try {
         const { name, email, password, phone, rol, speciality } = req.body;
 
-        const exists = await usersRepository.findByEmail(email);
+        const exists = await userService.findByEmail(email);
         if (exists) return res.status(400).json({ error: "El email ya está registrado" });
 
         const newUser = {
@@ -19,11 +20,11 @@ export const register = async (req, res) => {
             email,
             password: await createHash(password),
             phone,
-            rol: rol || 'alumno',
+            rol,
             speciality: speciality || []
         };
 
-        const result = await usersRepository.create(newUser);
+        const result = await userService.create(newUser);
         res.status(201).json({ message: "Usuario creado con éxito", payload: result });
     } catch (error) {
         console.error("Error en registro:", error);
@@ -35,7 +36,7 @@ export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        const user = await usersRepository.findByEmail(email);
+        const user = await userService.findByEmail(email);
         if (!user || !await isValidPassword(user, password)) {
             return res.status(401).json({ error: "Credenciales inválidas" });
         }
