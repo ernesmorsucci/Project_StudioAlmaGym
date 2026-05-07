@@ -2,7 +2,7 @@ import { Router } from "express";
 import { register, login, logout, getCurrentUser } from "../controllers/auth.controller.js";
 import { isAuthenticated } from "../middlewares/auth.middleware.js";
 
-const router = Router();
+const authRouter = Router();
 
 // Endpoint para registrar un usuario (AD-HDU-12)
 router.post("/register", register);
@@ -16,4 +16,4 @@ router.post("/logout", logout);
 // Endpoint para que React valide si hay una sesión activa al recargar la página
 router.get("/current", isAuthenticated, getCurrentUser);
 
-export default router;
+export default authRouter; 
