@@ -18,21 +18,21 @@ const usersRouter = Router();
  */
 
 // 1. Obtener la lista de todos los usuarios (Solo Admin)
-router.get("/", isAuthenticated, checkRole(['admin']), getAllUsers);
+usersRouter.get("/", isAuthenticated, checkRole(['admin']), getAllUsers);
 
 // 2. Crear un usuario manualmente (Solo Admin)
-router.post("/", isAuthenticated, checkRole(['admin']), addUser);
+usersRouter.post("/", isAuthenticated, checkRole(['admin']), addUser);
 
 // 3. Obtener usuarios por rol (ej: /api/users/role/profesor) (Solo Admin)
-router.get("/role/:role", isAuthenticated, checkRole(['admin']), getAllByRole);
+usersRouter.get("/role/:role", isAuthenticated, checkRole(['admin']), getAllByRole);
 
 // 4. Buscar usuario por email (Solo Admin)
-router.get("/email/:email", isAuthenticated, checkRole(['admin']), getByEmail);
+usersRouter.get("/email/:email", isAuthenticated, checkRole(['admin']), getByEmail);
 
 // 5. Obtener, Actualizar o Eliminar un usuario específico por ID
 // Nota: Aquí el Admin tiene poder total, pero un alumno podría actualizar sus propios datos
-router.get("/:uid", isAuthenticated, getUser);
-router.put("/:uid", isAuthenticated, updateUser);
-router.delete("/:uid", isAuthenticated, checkRole(['admin']), deleteUser);
+usersRouter.get("/:uid", isAuthenticated, getUser);
+usersRouter.put("/:uid", isAuthenticated, updateUser);
+usersRouter.delete("/:uid", isAuthenticated, checkRole(['admin']), deleteUser);
 ///Revisar la confirmacion del Rol ya que un usuario Alumno podria cambiar su rol a admin 
 export default usersRouter;
