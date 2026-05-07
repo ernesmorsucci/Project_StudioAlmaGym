@@ -24,15 +24,15 @@ const schema = new mongoose.Schema({
         default: 'pending'
     },
     waitingPosition:{
-        type: Number,   //modificado a number
-        required: true
+        type: Number,
+        default: 0
     }
 }, { timestamps: true });
 
-schema.index({ studentId: 1, classId: 1 }, { unique: true }); //evita duplicados
+schema.index({ studentId: 1, classId: 1 }, { unique: true });
 schema.index({ classId: 1, status: 1 });
-schema.index({ classId: 1, waitingPosition: 1 }); //mover lista de espera
+schema.index({ classId: 1, waitingPosition: 1 });
 
-const reserveModel = mongoose.model(collection,schema);
+const reserveModel = mongoose.model(collection, schema);
 
 export default reserveModel;

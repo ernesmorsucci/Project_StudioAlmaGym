@@ -13,13 +13,20 @@ const schema = new mongoose.Schema({
         required: true
     },
     receivers:{
-        type: String
+        type: String,
+        enum: ['all', 'specific'],
+        required: true
     },
-    studentIds:[{            
+    studentIds:[{
         type: mongoose.SchemaTypes.ObjectId,
         ref: 'User'
     }],
-    sended:{
+    relatedClass:{
+        type: mongoose.SchemaTypes.ObjectId,
+        ref: 'Class',
+        required: false
+    },
+    sent:{
         type: Number,
         default: 0
     },
@@ -29,6 +36,6 @@ const schema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-const notificationModel = mongoose.model(collection,schema);
+const notificationModel = mongoose.model(collection, schema);
 
 export default notificationModel;

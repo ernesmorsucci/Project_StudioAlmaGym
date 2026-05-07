@@ -36,6 +36,8 @@ const schema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-const membershipModel = mongoose.model(collection,schema);
+schema.index({ studentId: 1, status: 1 });
+
+const membershipModel = mongoose.model(collection, schema);
 
 export default membershipModel;

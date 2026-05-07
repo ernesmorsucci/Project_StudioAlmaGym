@@ -13,11 +13,11 @@ const schema = new mongoose.Schema({
         ref: 'Membership',
         required: true
     },
-    planId:[{
-        type: mongoose.SchemaTypes.ObjectId,    //porque array?
+    planId:{
+        type: mongoose.SchemaTypes.ObjectId,
         ref: 'Plan',
         required: true
-    }],
+    },
     amount:{
         type: Number,
         required: true
@@ -37,12 +37,12 @@ const schema = new mongoose.Schema({
     },
     method:{
         type: String,
-        required: true
+        required: false
     }
 }, { timestamps: true });
 
 schema.index({ studentId: 1, date: -1 });
 
-const paymentModel = mongoose.model(collection,schema);
+const paymentModel = mongoose.model(collection, schema);
 
 export default paymentModel;

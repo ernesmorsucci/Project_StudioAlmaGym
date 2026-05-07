@@ -7,20 +7,20 @@ const schema = new mongoose.Schema({
         type: String,
         required: true
     },
-    WeeklyClasses:{
+    weeklyClasses:{
         type: Number,
         required: true
     },
-    price:[{                    //porque array? 
+    price:{
         type: Number,
         required: true
-    }],
+    },
     isActive:{
         type: Boolean,
         default: true
     }
 }, { timestamps: true });
 
-const planModel = mongoose.model(collection,schema);
+const planModel = mongoose.model(collection, schema);
 
 export default planModel;
