@@ -11,10 +11,16 @@ export const getAllNotifications = async (req, res) => {
     }
 };
 
-// 2. Obtener las notificaciones de un alumno (Para la campanita en su App)
 export const getUserNotifications = async (req, res) => {
     try {
         const { uid } = req.params;
+        const requestingUser = req.user;
+
+        // 🛡️ ESCUDO DE PRIVACIDAD
+        if (requestingUser._id !== uid && requestingUser.rol !== 'admin') {
+            return res.status(403).json({ status: "error", error: "Acceso denegado a estas notificaciones" });
+        }
+
         const notifications = await notificationService.getForUser(uid);
         res.status(200).json({ status: "success", payload: notifications });
     } catch (error) {

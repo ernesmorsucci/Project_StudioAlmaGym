@@ -19,6 +19,13 @@ export const getAllReserves = async (req, res) => {
 export const getStudentReservations = async (req, res) => {
     try {
         const { uid } = req.params;
+        const requestingUser = req.user;
+
+        // 🛡️ ESCUDO DE PRIVACIDAD
+        if (requestingUser._id !== uid && requestingUser.rol !== 'admin') {
+            return res.status(403).json({ status: "error", error: "Acceso denegado: Solo puedes ver tus propias reservas" });
+        }
+
         const reserves = await reserveService.findUserReservations(uid);
         res.status(200).json({ status: "success", payload: reserves });
     } catch (error) {
@@ -52,11 +59,16 @@ export const createReserve = async (req, res) => {
             return res.status(400).json({ status: "error", error: "Faltan datos obligatorios" });
         }
 
-        // A. Traemos la clase para ver si hay lugar
+        // 1. PRIMERO: Verificamos si ya existe una reserva activa para este alumno en esta clase
+        // Esto evita que ejecutemos los incrementos si el alumno ya está anotado.
+        const existingReserve = await reserveService.getBy({ studentId, classId, status: { $ne: 'canceled' } });
+        if (existingReserve) {
+            return res.status(400).json({ status: "error", error: "El alumno ya está inscripto en esta clase" });
+        }
+
         const targetClass = await classService.getBy({ _id: classId });
         if (!targetClass) return res.status(404).json({ status: "error", error: "Clase no encontrada" });
 
-        // B. Verificamos si hay cupo
         const hasQuota = targetClass.occupiedQuota < targetClass.maxQuota;
 
         let newReserveData = {
@@ -68,15 +80,12 @@ export const createReserve = async (req, res) => {
         };
 
         if (hasQuota) {
-            // SI HAY LUGAR: Se confirma, se ocupa un cupo en la clase y se descuenta un crédito al alumno
+            // SI HAY LUGAR: Ahora sí incrementamos, sabiendo que no es un duplicado
             await classService.incrementOccupiedQuota(classId, 1);
             await membershipService.incrementUsedClasses(membershipId);
         } else {
-            // SI NO HAY LUGAR: Va a lista de espera
-            // Calculamos qué posición le toca averiguando cuántos están ya en espera
             const currentPending = await reserveService.findByClass(classId);
             const pendingCount = currentPending.filter(r => r.status === 'pending').length;
-            
             newReserveData.status = 'pending';
             newReserveData.waitingPosition = pendingCount + 1;
         }
@@ -85,10 +94,6 @@ export const createReserve = async (req, res) => {
         res.status(201).json({ status: "success", payload: result, message: hasQuota ? "Reserva confirmada" : "Añadido a lista de espera" });
 
     } catch (error) {
-        // En MongoDB, si el índice "unique" salta porque el alumno ya estaba anotado, tirará un error 11000
-        if (error.code === 11000) {
-            return res.status(400).json({ status: "error", error: "El alumno ya está inscripto en esta clase" });
-        }
         console.error("Error en createReserve:", error);
         res.status(500).json({ status: "error", error: "Error al generar la reserva" });
     }
@@ -99,11 +104,22 @@ export const cancelReserve = async (req, res) => {
     try {
         const { rid } = req.params; // ID de la reserva
         const { membershipId } = req.body; // Necesitamos el ID de la membresía para devolverle el crédito
+        const user = req.user; // <-- 1. NUEVO: Obtenemos el usuario que hace la petición (viene del token)
 
         const reserve = await reserveService.getBy({ _id: rid });
         if (!reserve || reserve.status === 'canceled') {
             return res.status(404).json({ status: "error", error: "Reserva no válida o ya cancelada" });
         }
+
+        // ==========================================
+        // 🛡️ ESCUDO DE SEGURIDAD 
+        // ==========================================
+        // Comparamos el ID del dueño de la reserva con el ID del que está logueado.
+        // Convertimos reserve.studentId a string por si es un ObjectId de Mongoose.
+        if (reserve.studentId.toString() !== user._id && user.rol !== 'admin') {
+            return res.status(403).json({ status: "error", error: "No tienes permiso para cancelar esta reserva" });
+        }
+        // ==========================================
 
         // A. Cancelamos la reserva actual
         await reserveService.update(rid, { status: 'canceled', waitingPosition: 0 });

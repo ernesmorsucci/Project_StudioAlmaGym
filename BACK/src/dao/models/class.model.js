@@ -15,7 +15,7 @@ const schema = new mongoose.Schema({
     recurrentScheduleId:{
         type: mongoose.SchemaTypes.ObjectId,
         ref: 'RecurrentSchedule',
-        required: true
+        required: false
     },
     dateTime:{
         type: Date,

@@ -24,7 +24,7 @@ usersRouter.get("/", isAuthenticated, checkRole(['admin']), getAllUsers);
 usersRouter.post("/", isAuthenticated, checkRole(['admin']), addUser);
 
 // 3. Obtener usuarios por rol (ej: /api/users/role/profesor) (Solo Admin)
-usersRouter.get("/role/:role", isAuthenticated, checkRole(['admin']), getAllByRole);
+usersRouter.get("/role/:rol", isAuthenticated, checkRole(['admin']), getAllByRole);
 
 // 4. Buscar usuario por email (Solo Admin)
 usersRouter.get("/email/:email", isAuthenticated, checkRole(['admin']), getByEmail);

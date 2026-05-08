@@ -15,13 +15,14 @@ import reserveRouter from "./routes/reserve.routes.js";
 import notificationRouter from "./routes/notification.routes.js";
 
 
-
 if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET no definido en .env");
 
 const app = express();
 const PORT = process.env.PORT || 8080;
 
 app.use(express.json());
+app.use(cookieParser());
+app.use(cors({ origin: "http://localhost:5173", credentials: true }));
 
 app.use("/api/users", usersRouter);
 app.use("/api/classes", classRouter);
@@ -31,11 +32,11 @@ app.use("/api/plan", planRouter);
 app.use("/api/schedules", recurrentRouter);
 app.use("/api/reserves", reserveRouter);
 app.use("/api/notifications", notificationRouter);
-
-app.use(cookieParser());
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
-
 app.use("/api/auth", authRouter);
+
+
+
+
 
 let io;
 

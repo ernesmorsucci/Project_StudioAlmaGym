@@ -91,15 +91,17 @@ export const deleteMembership = async (req, res) => {
 // MÉTODOS DE NEGOCIO (Usan las funciones pro del Repo)
 // ==========================================
 
-// 6. Obtener la membresía ACTIVA de un alumno en particular (Ideal para su panel de control)
 export const getStudentActiveMembership = async (req, res) => {
     try {
-        const { uid } = req.params; // ID del usuario (studentId)
-        
-        const membership = await membershipService.getBy({ 
-            studentId: uid, 
-            status: 'active' 
-        });
+        const { uid } = req.params; 
+        const requestingUser = req.user; // Usuario del token
+
+        // 🛡️ ESCUDO DE PRIVACIDAD
+        if (requestingUser._id !== uid && requestingUser.rol !== 'admin') {
+            return res.status(403).json({ status: "error", error: "Acceso denegado: No puedes ver membresías de otros alumnos" });
+        }
+
+        const membership = await membershipService.getBy({ studentId: uid, status: 'active' });
 
         if (!membership) {
             return res.status(404).json({ status: "error", error: "El alumno no tiene una membresía activa" });

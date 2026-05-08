@@ -88,7 +88,13 @@ export const confirmPayment = async (req, res) => {
 // 5. Historial de pagos de un alumno (Para la sección "Mi Billetera" de la alumna)
 export const getStudentPayments = async (req, res) => {
     try {
-        const { uid } = req.params; // ID del alumno
+        const { uid } = req.params; 
+        const requestingUser = req.user; 
+
+        // 🛡️ ESCUDO DE PRIVACIDAD
+        if (requestingUser._id !== uid && requestingUser.rol !== 'admin') {
+            return res.status(403).json({ status: "error", error: "Acceso denegado: No puedes ver el historial de pagos de otros alumnos" });
+        }
         
         const payments = await paymentService.getPaymentsByStudent(uid);
         

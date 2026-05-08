@@ -16,8 +16,14 @@ export const getAllUsers = async (req, res) => {
 export const getUser = async (req, res) => {
     try {
         const { uid } = req.params;
+        const requestingUser = req.user;
+
+        // 🛡️ ESCUDO: Solo el admin o el propio dueño pueden ver todo el perfil
+        if (requestingUser._id !== uid && requestingUser.rol !== 'admin') {
+            return res.status(403).json({ status: 'error', error: 'Acceso denegado al perfil' });
+        }
+
         const user = await userService.getBy({ _id: uid });
-        
         if (!user) return res.status(404).json({ status: 'error', error: 'Usuario no encontrado' });
         
         res.status(200).json({ status: 'success', payload: user });
@@ -55,26 +61,41 @@ export const addUser = async (req, res) => {
 };
 
 // 4. Actualizar un usuario
+//import { usersService } from "../services/index.service.js";
+
+// Actualizar Usuario (Con escudo de seguridad)
 export const updateUser = async (req, res) => {
     try {
         const { uid } = req.params;
-        const data = req.body;
+        const requestingUser = req.user; 
+        
+        const { rol, email, password, ...allowedUpdates } = req.body;
 
-        // Si se envía una nueva contraseña, hay que hashearla
-        if (data.password) {
-            data.password = await createHash(data.password);
+        // 🛡️ ESCUDO DE PRIVACIDAD
+        if (requestingUser._id !== uid && requestingUser.rol !== 'admin') {
+            return res.status(403).json({ status: "error", error: "No tienes permiso para modificar este perfil" });
         }
 
-        const updatedUser = await userService.update(uid, data);
-        if (!updatedUser) return res.status(404).json({ status: 'error', error: 'Usuario no encontrado' });
+        let finalUpdates = { ...allowedUpdates };
+        
+        // Bloqueo de rol: solo un admin real puede ascender a alguien
+        if (requestingUser.rol === 'admin' && rol) {
+            finalUpdates.rol = rol;
+        }
 
-        res.status(200).json({ status: 'success', payload: updatedUser });
+        if (email || password) {
+             console.warn(`Intento de cambio de credenciales bloqueado para el usuario: ${uid}`);
+        }
+
+        const updatedUser = await userService.update(uid, finalUpdates); // Asegurate que diga userService (no usersService)
+        if (!updatedUser) return res.status(404).json({ status: "error", error: "Usuario no encontrado" });
+
+        res.status(200).json({ status: "success", message: "Perfil actualizado", payload: updatedUser });
     } catch (error) {
         console.error("Error en updateUser:", error);
-        res.status(500).json({ status: 'error', error: 'Error al actualizar el usuario' });
+        res.status(500).json({ status: "error", error: "Error interno al actualizar" });
     }
 };
-
 // 5. Eliminar un usuario
 export const deleteUser = async (req, res) => {
     try {
@@ -108,9 +129,11 @@ export const getByEmail = async (req, res) => {
 // 7. Obtener todos por Rol (ej. traer todos los 'profesor')
 export const getAllByRole = async (req, res) => {
     try {
-        const { role } = req.params;
-        // Importante: tu modelo usa el campo 'rol'
-        const users = await userService.getAll({ rol: role });
+        const { rol } = req.params; 
+        
+        // Se utiliza la variable para realizar la consulta a la base de datos
+        const users = await userService.getAll({ rol: rol }); 
+        
         res.status(200).json({ status: 'success', payload: users });
     } catch (error) {
         console.error("Error en getAllByRole:", error);
