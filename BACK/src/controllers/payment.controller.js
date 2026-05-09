@@ -1,10 +1,10 @@
-import { paymentService } from "../services/index.service.js";
+import { paymentService, membershipService } from "../services/index.service.js";
 
 // ==========================================
 // MÉTODOS BÁSICOS (CRUD)
 // ==========================================
 
-// 1. Obtener todos los pagos (Ideal para la vista general del Admin)
+// 1. Obtener todos los pagos (Vista general del Admin)
 export const getAllPayments = async (req, res) => {
     try {
         const payments = await paymentService.getAll();
@@ -15,7 +15,7 @@ export const getAllPayments = async (req, res) => {
     }
 };
 
-// 2. Obtener un pago específico por ID (Ver el detalle de un recibo)
+// 2. Obtener un pago específico por ID
 export const getPaymentById = async (req, res) => {
     try {
         const { pid } = req.params;
@@ -30,7 +30,7 @@ export const getPaymentById = async (req, res) => {
     }
 };
 
-// 3. Crear un nuevo pago / Generar cupón (Queda en estado 'pending')
+// 3. Crear un nuevo pago / Generar cupón (nace en estado 'pending')
 export const createPayment = async (req, res) => {
     try {
         const { studentId, membershipId, planId, amount, expiration } = req.body;
@@ -45,8 +45,8 @@ export const createPayment = async (req, res) => {
             planId,
             amount,
             expiration,
-            date: new Date(), // Fecha de creación del cupón
-            status: 'pending' // Por defecto nace pendiente
+            date: new Date(),
+            status: 'pending'
         };
 
         const result = await paymentService.create(newPayment);
@@ -58,34 +58,74 @@ export const createPayment = async (req, res) => {
 };
 
 // ==========================================
-// MÉTODOS DE NEGOCIO (Usan las funciones pro del Repo)
+// MÉTODOS DE NEGOCIO
 // ==========================================
 
-// 4. Confirmar un pago (Admin marca que el alumno le pagó)
+/**
+ * CDU-03: Confirmar un pago y renovar la membresía automáticamente.
+ * 
+ * REGLA DE NEGOCIO (del PDF):
+ * La nueva fecha de vencimiento siempre es Fecha_Pago + 30 días,
+ * independientemente de cuándo vencía el ciclo anterior.
+ * Esto cubre el caso de pago atrasado: si vencía el 10 y paga el 15,
+ * el nuevo vencimiento es el 14 del mes siguiente.
+ * 
+ * Flujo CDU-03:
+ * 1. Marca el pago como 'paid' con método y fecha exacta.
+ * 2. Calcula nueva expireDate = ahora + 30 días.
+ * 3. Llama a renewMembership() que resetea usedClassesThisWeek y extiende expireDate.
+ */
 export const confirmPayment = async (req, res) => {
     try {
         const { pid } = req.params;
-        const { method } = req.body; // ej: 'efectivo', 'transferencia', 'mercado_pago'
+        const { method } = req.body; // 'efectivo', 'transferencia', 'mercado_pago'
 
         if (!method) {
             return res.status(400).json({ status: "error", error: "Debe especificar el método de pago" });
         }
 
-        const result = await paymentService.markAsPaid(pid, method);
-        
-        if (!result) return res.status(404).json({ status: "error", error: "Pago no encontrado" });
+        // Paso 1: Buscar el pago para obtener el membershipId
+        const payment = await paymentService.getBy({ _id: pid });
+        if (!payment) return res.status(404).json({ status: "error", error: "Pago no encontrado" });
 
-        // NOTA MENTAL: En el futuro, acá podríamos llamar a membershipService.renewMembership()
-        // para que al pagar, automáticamente se le renueve el mes a la alumna.
+        if (payment.status === 'paid') {
+            return res.status(400).json({ status: "error", error: "Este pago ya fue confirmado anteriormente" });
+        }
 
-        res.status(200).json({ status: "success", message: "Pago confirmado exitosamente", payload: result });
+        // Paso 2: Marcar el pago como pagado (registra método y fecha real de la transacción)
+        const updatedPayment = await paymentService.markAsPaid(pid, method);
+
+        // Paso 3: Calcular nueva fecha de vencimiento (Fecha_Pago + 30 días)
+        const newExpireDate = new Date();
+        newExpireDate.setDate(newExpireDate.getDate() + 30);
+
+        // Paso 4: Renovar la membresía asociada al pago
+        const updatedMembership = await membershipService.renewMembership(
+            payment.membershipId,
+            newExpireDate
+        );
+
+        if (!updatedMembership) {
+            // El pago se confirmó pero la membresía no se encontró — loguear para revisión manual
+            console.error(`ALERTA: Pago ${pid} confirmado pero la membresía ${payment.membershipId} no fue encontrada para renovar.`);
+        }
+
+        res.status(200).json({ 
+            status: "success", 
+            message: "Pago confirmado y membresía renovada exitosamente", 
+            payload: {
+                payment: updatedPayment,
+                membership: updatedMembership,
+                newExpireDate
+            }
+        });
     } catch (error) {
         console.error("Error en confirmPayment:", error);
         res.status(500).json({ status: "error", error: "Error al confirmar el pago" });
     }
 };
 
-// 5. Historial de pagos de un alumno (Para la sección "Mi Billetera" de la alumna)
+// 5. Historial de pagos de un alumno ("Mi Billetera")
 export const getStudentPayments = async (req, res) => {
     try {
         const { uid } = req.params; 
@@ -105,7 +145,7 @@ export const getStudentPayments = async (req, res) => {
     }
 };
 
-// 6. Arqueo de caja: Obtener ingresos en un rango de fechas (Para el Dashboard del Admin)
+// 6. Arqueo de caja: ingresos en un rango de fechas (Dashboard del Admin)
 export const getPaymentsByDateRange = async (req, res) => {
     try {
         const { startDate, endDate } = req.query;
@@ -116,7 +156,7 @@ export const getPaymentsByDateRange = async (req, res) => {
 
         const start = new Date(startDate);
         const end = new Date(endDate);
-        end.setHours(23, 59, 59, 999); // Que cubra todo el último día
+        end.setHours(23, 59, 59, 999);
 
         const payments = await paymentService.getPaymentsByDateRange(start, end);
         
@@ -127,7 +167,7 @@ export const getPaymentsByDateRange = async (req, res) => {
     }
 };
 
-// 7. Buscar deudores (Pagos pendientes vencidos)
+// 7. Buscar deudores (pagos pendientes vencidos)
 export const getDefaulters = async (req, res) => {
     try {
         const defaulters = await paymentService.getPendingExpiredPayments();

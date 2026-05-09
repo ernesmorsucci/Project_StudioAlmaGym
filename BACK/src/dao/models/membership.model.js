@@ -26,11 +26,11 @@ const schema = new mongoose.Schema({
         enum: ['active','expired','suspended'],
         default: 'active'
     },
-    usedClassesThisWeek:{
+    usedClassesThisMonth:{
         type: Number,
         default: 0
     },
-    currentWeek:{
+    currentPeriod:{
         type: Date,
         required: true
     }

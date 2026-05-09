@@ -26,7 +26,9 @@ export const getMembershipById = async (req, res) => {
     }
 };
 
-// 3. Crear una nueva membresía (Cuando un alumno paga su primer plan)
+// 3. Crear una nueva membresía
+// REGLA DE NEGOCIO: Un alumno solo puede tener UNA membresía activa a la vez.
+// Si ya tiene una activa, se la suspende automáticamente antes de crear la nueva.
 export const addMembership = async (req, res) => {
     try {
         const { studentId, planId, startDate, expireDate } = req.body;
@@ -35,15 +37,21 @@ export const addMembership = async (req, res) => {
             return res.status(400).json({ status: "error", error: "Faltan datos obligatorios" });
         }
 
-        // Se crea con 0 clases usadas y la fecha actual como semana de inicio
+        const existingActive = await membershipService.getBy({ studentId, status: 'active' });
+
+        if (existingActive) {
+            await membershipService.update(existingActive._id, { status: 'suspended' });
+            console.warn(`Membresía anterior ${existingActive._id} suspendida al crear una nueva para el alumno ${studentId}`);
+        }
+
         const newMembership = {
             studentId,
             planId,
             startDate,
             expireDate,
             status: 'active',
-            usedClassesThisWeek: 0,
-            currentWeek: new Date() 
+            usedClassesThisMonth: 0,
+            currentPeriod: new Date()
         };
 
         const result = await membershipService.create(newMembership);
@@ -54,7 +62,7 @@ export const addMembership = async (req, res) => {
     }
 };
 
-// 4. Actualizar datos de una membresía (Admin) / tambien activamos y desactivamos 
+// 4. Actualizar datos de una membresía (Admin)
 export const updateMembership = async (req, res) => {
     try {
         const { mid } = req.params;
@@ -70,12 +78,11 @@ export const updateMembership = async (req, res) => {
     }
 };
 
-// 5. Borrar Membresía 
+// 5. Borrar Membresía (borrado físico)
 export const deleteMembership = async (req, res) => {
     try {
         const { mid } = req.params;
         
-        // Cambio a borrado físico
         const result = await membershipService.delete(mid);
 
         if (!result) return res.status(404).json({ status: "error", error: "Membresía no encontrada" });
@@ -88,38 +95,44 @@ export const deleteMembership = async (req, res) => {
 };
 
 // ==========================================
-// MÉTODOS DE NEGOCIO (Usan las funciones pro del Repo)
+// MÉTODOS DE NEGOCIO
 // ==========================================
 
+// 6. Obtener la membresía activa de un alumno
+// Si por algún error existieran dos activas, devuelve la más reciente y loguea una alerta.
 export const getStudentActiveMembership = async (req, res) => {
     try {
         const { uid } = req.params; 
-        const requestingUser = req.user; // Usuario del token
+        const requestingUser = req.user;
 
         // 🛡️ ESCUDO DE PRIVACIDAD
         if (requestingUser._id !== uid && requestingUser.rol !== 'admin') {
             return res.status(403).json({ status: "error", error: "Acceso denegado: No puedes ver membresías de otros alumnos" });
         }
 
-        const membership = await membershipService.getBy({ studentId: uid, status: 'active' });
+        const activeMemberships = await membershipService.getAll({ studentId: uid, status: 'active' });
 
-        if (!membership) {
+        if (!activeMemberships || activeMemberships.length === 0) {
             return res.status(404).json({ status: "error", error: "El alumno no tiene una membresía activa" });
         }
 
-        res.status(200).json({ status: "success", payload: membership });
+        if (activeMemberships.length > 1) {
+            console.error(`ALERTA: El alumno ${uid} tiene ${activeMemberships.length} membresías activas. Se devuelve la más reciente.`);
+        }
+
+        const latest = activeMemberships.sort((a, b) => new Date(b.startDate) - new Date(a.startDate))[0];
+
+        res.status(200).json({ status: "success", payload: latest });
     } catch (error) {
         console.error("Error en getStudentActiveMembership:", error);
         res.status(500).json({ status: "error", error: "Error al buscar la membresía del alumno" });
     }
 };
 
-// 7. Obtener membresías a punto de vencer (Para el Dashboard del Admin o mandar WhatsApps)
+// 7. Obtener membresías a punto de vencer (Dashboard del Admin)
 export const getExpiringMemberships = async (req, res) => {
     try {
-        // Aprovechamos el método que ya crearon en el repositorio
-        const expiring = await membershipService.findSoonToExpire(3); // Vencen en 3 días o menos
-        
+        const expiring = await membershipService.findSoonToExpire(3);
         res.status(200).json({ status: "success", payload: expiring });
     } catch (error) {
         console.error("Error en getExpiringMemberships:", error);

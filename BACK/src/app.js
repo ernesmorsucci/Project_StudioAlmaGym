@@ -13,7 +13,7 @@ import planRouter from "./routes/plan.routes.js";
 import recurrentRouter from "./routes/recurrentSchedule.routes.js";
 import reserveRouter from "./routes/reserve.routes.js";
 import notificationRouter from "./routes/notification.routes.js";
-
+import { startCronJobs } from "./utils/cron.js";
 
 if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET no definido en .env");
 
@@ -43,7 +43,7 @@ let io;
 const startServer = async () => {
     try {
         await connectDB();
-
+        startCronJobs();
         const httpServer = app.listen(PORT, () =>
             console.log(`Servidor en puerto ${PORT}`)
         );

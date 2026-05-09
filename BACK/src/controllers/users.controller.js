@@ -60,10 +60,7 @@ export const addUser = async (req, res) => {
     }
 };
 
-// 4. Actualizar un usuario
-//import { usersService } from "../services/index.service.js";
-
-// Actualizar Usuario (Con escudo de seguridad)
+// 4. Actualizar un usuario (con escudo de seguridad)
 export const updateUser = async (req, res) => {
     try {
         const { uid } = req.params;
@@ -83,11 +80,12 @@ export const updateUser = async (req, res) => {
             finalUpdates.rol = rol;
         }
 
+        // Email y password bloqueados en este endpoint (requieren flujo dedicado con verificación)
         if (email || password) {
-             console.warn(`Intento de cambio de credenciales bloqueado para el usuario: ${uid}`);
+            console.warn(`Intento de cambio de credenciales bloqueado para el usuario: ${uid}`);
         }
 
-        const updatedUser = await userService.update(uid, finalUpdates); // Asegurate que diga userService (no usersService)
+        const updatedUser = await userService.update(uid, finalUpdates);
         if (!updatedUser) return res.status(404).json({ status: "error", error: "Usuario no encontrado" });
 
         res.status(200).json({ status: "success", message: "Perfil actualizado", payload: updatedUser });
@@ -96,7 +94,8 @@ export const updateUser = async (req, res) => {
         res.status(500).json({ status: "error", error: "Error interno al actualizar" });
     }
 };
-// 5. Eliminar un usuario
+
+// 5. Eliminar un usuario (borrado físico)
 export const deleteUser = async (req, res) => {
     try {
         const { uid } = req.params;
@@ -126,13 +125,18 @@ export const getByEmail = async (req, res) => {
     }
 };
 
-// 7. Obtener todos por Rol (ej. traer todos los 'profesor')
+// 7. Obtener todos los usuarios por Rol (ej: /api/users/role/profesor)
+// CORREGIDO: usa findByRole() del repositorio en vez de getAll() con filtro manual
 export const getAllByRole = async (req, res) => {
     try {
-        const { rol } = req.params; 
-        
-        // Se utiliza la variable para realizar la consulta a la base de datos
-        const users = await userService.getAll({ rol: rol }); 
+        const { rol } = req.params;
+
+        const rolesValidos = ['alumno', 'profesor', 'admin'];
+        if (!rolesValidos.includes(rol)) {
+            return res.status(400).json({ status: 'error', error: `Rol inválido. Los valores posibles son: ${rolesValidos.join(', ')}` });
+        }
+
+        const users = await userService.findByRole(rol);
         
         res.status(200).json({ status: 'success', payload: users });
     } catch (error) {

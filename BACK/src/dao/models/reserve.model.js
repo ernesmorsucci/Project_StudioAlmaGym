@@ -29,7 +29,16 @@ const schema = new mongoose.Schema({
     }
 }, { timestamps: true });
 
-schema.index({ studentId: 1, classId: 1 }, { unique: true });
+// ÍNDICE PARCIAL: Solo bloquea duplicados cuando la reserva NO está cancelada.
+// Esto permite que un alumno vuelva a reservar una clase que canceló previamente,
+// ya que el documento cancelado queda en la DB y el índice unique total lo bloqueaba.
+schema.index(
+    { studentId: 1, classId: 1 },
+    { 
+        unique: true,
+        partialFilterExpression: { status: { $in: ['confirmed', 'pending'] } }
+    }
+);
 schema.index({ classId: 1, status: 1 });
 schema.index({ classId: 1, waitingPosition: 1 });
 

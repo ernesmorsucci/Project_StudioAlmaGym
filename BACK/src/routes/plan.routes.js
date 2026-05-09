@@ -13,36 +13,42 @@ const planRouter = Router();
 
 /**
  * RUTAS DE PLANES (Oferta comercial del estudio)
+ * 
+ * ORDEN IMPORTANTE:
+ * Las rutas específicas (/active) deben ir ANTES de las rutas con parámetro (/:pid)
+ * para que Express no interprete "active" como un ID.
+ * La ruta raíz (/) va al final de los GETs para mayor claridad, aunque Express
+ * no tiene conflicto con ella al ser una ruta exacta sin parámetro.
  */
 
 // ==========================================
-// RUTAS PÚBLICAS/ALUMNAS
+// RUTAS ESPECÍFICAS (van antes que /:pid)
 // ==========================================
 
-// 1. Ver solo los planes que están actualmente a la venta
-// Importante: Va antes de /:pid para evitar conflictos
+// 1. Ver solo los planes activos (Alumnos - Precio/Oferta del estudio)
 planRouter.get("/active", isAuthenticated, getActivePlans);
-
-// 2. Ver el detalle de un plan específico
-planRouter.get("/:pid", isAuthenticated, getPlanById);
-
 
 // ==========================================
 // RUTAS DE ADMINISTRACIÓN (Solo Admin)
 // ==========================================
 
-// 3. Ver todos los planes, incluso los archivados/inactivos (Solo Admin)
+// 2. Ver TODOS los planes, incluso inactivos/archivados (Solo Admin)
 planRouter.get("/", isAuthenticated, checkRole(['admin']), getAllPlans);
 
-// 4. Crear un nuevo plan (Solo Admin)
+// 3. Crear un nuevo plan (Solo Admin)
 planRouter.post("/", isAuthenticated, checkRole(['admin']), addPlan);
 
-// 5. Editar un plan existente (Solo Admin)
-// Nota: Aquí se puede usar para activar/desactivar el plan (isActive: true/false)
+// ==========================================
+// RUTAS CON PARÁMETRO (van al final para no capturar rutas fijas)
+// ==========================================
+
+// 4. Ver el detalle de un plan específico
+planRouter.get("/:pid", isAuthenticated, getPlanById);
+
+// 5. Editar un plan (Solo Admin - también para activar/desactivar con isActive)
 planRouter.put("/:pid", isAuthenticated, checkRole(['admin']), updatePlan);
 
-// 6. Eliminar permanentemente un plan de la base de datos (Solo Admin)
-// Tal como acordamos, esto realiza un borrado físico.
+// 6. Eliminar permanentemente un plan (Solo Admin - borrado físico)
 planRouter.delete("/:pid", isAuthenticated, checkRole(['admin']), deletePlan);
 
 export default planRouter;
