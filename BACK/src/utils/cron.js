@@ -1,6 +1,6 @@
 import cron from "node-cron";
 import { membershipService, paymentService } from "../services/index.service.js";
-
+import { recurrentScheduleService, classService } from "../services/index.service.js";
 /**
  * CRON JOBS - Studio Alma
  * 
@@ -98,7 +98,72 @@ const paymentExpirationCheck = cron.schedule('0 2 * * *', async () => {
     }
 }, { scheduled: false });
 
+// ==========================================
+// JOB 4: GENERADOR AUTOMÁTICO DE CLASES (2 Semanas)
+// ==========================================
+/**
+ * Se ejecuta todos los días a las 03:00 hs.
+ * Mira exactamente el día de "Hoy + 14 días".
+ * Busca todas las plantillas activas que correspondan a ese día de la semana,
+ * y genera físicamente los documentos en la colección Class.
+ */
+const classGenerator = cron.schedule('0 3 * * *', async () => {
+    console.log('[CRON] Iniciando generador de clases (2 semanas a futuro)...');
+    try {
+        // 1. Determinar el día objetivo (Hoy + 14 días)
+        const targetDate = new Date();
+        targetDate.setDate(targetDate.getDate() + 14);
+        const targetDayOfWeek = targetDate.getDay(); // 0 = Domingo, 1 = Lunes, etc.
 
+        // 2. Traer todas las plantillas activas
+        const activeSchedules = await recurrentScheduleService.getAll({ isActive: true });
+        
+        let classesCreated = 0;
+
+        // 3. Iterar y crear
+        for (const schedule of activeSchedules) {
+            // Si la plantilla incluye este día de la semana
+            if (schedule.daysWeek.includes(targetDayOfWeek)) {
+                
+                // Extraer hora y minutos de la plantilla (Ej: "18:30")
+                const [startHour, startMin] = schedule.startTime.split(':');
+                const [endHour, endMin] = schedule.endTime.split(':');
+
+                // Construir la fecha/hora exacta de inicio
+                const classDateTime = new Date(targetDate);
+                classDateTime.setHours(parseInt(startHour), parseInt(startMin), 0, 0);
+
+                // Construir la fecha/hora exacta de fin
+                const classEndTime = new Date(targetDate);
+                classEndTime.setHours(parseInt(endHour), parseInt(endMin), 0, 0);
+
+                // Verificar si por alguna razón la clase ya se había generado (para no duplicar)
+                const exists = await classService.getBy({ 
+                    recurrentScheduleId: schedule._id, 
+                    dateTime: classDateTime 
+                });
+
+                if (!exists) {
+                    await classService.create({
+                        name: schedule.name,
+                        professorId: schedule.professorId,
+                        recurrentScheduleId: schedule._id,
+                        dateTime: classDateTime,
+                        endTime: classEndTime,
+                        maxQuota: schedule.maxQuota,
+                        occupiedQuota: 0,
+                        isActive: true
+                    });
+                    classesCreated++;
+                }
+            }
+        }
+
+        console.log(`[CRON] Generación finalizada. Se crearon ${classesCreated} clases para el día ${targetDate.toLocaleDateString()}.`);
+    } catch (error) {
+        console.error('[CRON] Error en el generador de clases:', error.message);
+    }
+}, { scheduled: false });
 // ==========================================
 // FUNCIÓN PRINCIPAL - llamar desde app.js
 // ==========================================
@@ -106,5 +171,6 @@ export const startCronJobs = () => {
     monthlyCreditsReset.start();
     membershipExpirationCheck.start();
     paymentExpirationCheck.start();
+    classGenerator.start()
     console.log('[CRON] Todos los jobs iniciados correctamente.');
 };

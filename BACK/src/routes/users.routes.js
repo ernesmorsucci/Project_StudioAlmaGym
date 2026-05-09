@@ -6,33 +6,30 @@ import {
     updateUser, 
     deleteUser, 
     getByEmail, 
-    getAllByRole 
+    getAllByRole,
+    getProfessorsDirectory, // Asegúrate de que esté importado
+    getStudentsDirectory   // Añadimos este para la gestión de alumnos
 } from "../controllers/users.controller.js";
 import { isAuthenticated, checkRole } from "../middlewares/auth.middleware.js";
 
 const usersRouter = Router();
 
-/**
- * RUTAS DE ADMINISTRACIÓN DE USUARIOS
- * Todas estas rutas requieren que el usuario esté logueado.
- */
+// ==========================================
+// RUTAS FIJAS (SIEMPRE ARRIBA DE /:uid)
+// ==========================================
+usersRouter.get("/directory/professors", isAuthenticated, checkRole(['admin']), getProfessorsDirectory);
+usersRouter.get("/directory/students", isAuthenticated, checkRole(['profesor', 'admin']), getStudentsDirectory);
 
-// 1. Obtener la lista de todos los usuarios (Solo Admin)
 usersRouter.get("/", isAuthenticated, checkRole(['admin']), getAllUsers);
-
-// 2. Crear un usuario manualmente (Solo Admin)
 usersRouter.post("/", isAuthenticated, checkRole(['admin']), addUser);
-
-// 3. Obtener usuarios por rol (ej: /api/users/role/profesor) (Solo Admin)
 usersRouter.get("/role/:rol", isAuthenticated, checkRole(['admin']), getAllByRole);
-
-// 4. Buscar usuario por email (Solo Admin)
 usersRouter.get("/email/:email", isAuthenticated, checkRole(['admin']), getByEmail);
 
-// 5. Obtener, Actualizar o Eliminar un usuario específico por ID
-// Nota: Aquí el Admin tiene poder total, pero un alumno podría actualizar sus propios datos
+// ==========================================
+// RUTAS CON PARÁMETROS
+// ==========================================
 usersRouter.get("/:uid", isAuthenticated, getUser);
 usersRouter.put("/:uid", isAuthenticated, updateUser);
 usersRouter.delete("/:uid", isAuthenticated, checkRole(['admin']), deleteUser);
-///Revisar la confirmacion del Rol ya que un usuario Alumno podria cambiar su rol a admin 
+
 export default usersRouter;

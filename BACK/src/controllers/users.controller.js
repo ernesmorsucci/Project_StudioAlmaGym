@@ -1,6 +1,6 @@
 import { userService } from "../services/index.service.js";
 import { createHash } from "../utils/hash.js";
-
+import { recurrentScheduleService, classService } from "../services/index.service.js";
 // 1. Obtener todos los usuarios
 export const getAllUsers = async (req, res) => {
     try {
@@ -142,5 +142,80 @@ export const getAllByRole = async (req, res) => {
     } catch (error) {
         console.error("Error en getAllByRole:", error);
         res.status(500).json({ status: 'error', error: 'Error al filtrar por rol' });
+    }
+
+    
+};
+
+export const getProfessorsDirectory = async (req, res) => {
+    try {
+        const professors = await userService.findByRole('profesor');
+        
+        const startOfMonth = new Date();
+        startOfMonth.setDate(1);
+        startOfMonth.setHours(0,0,0,0);
+        const endOfMonth = new Date(startOfMonth.getFullYear(), startOfMonth.getMonth() + 1, 0, 23, 59, 59);
+
+        const directory = await Promise.all(professors.map(async (prof) => {
+            // 1. Buscar sus plantillas para armar el texto "Lun/Mié/Vie 08:00"
+            const schedules = await recurrentScheduleService.getSchedulesByProfessor(prof._id);
+            const diasMap = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+            
+            const clasesAsignadas = schedules.map(sch => {
+                const diasTexto = sch.daysWeek.map(d => diasMap[d]).join('/');
+                return `${diasTexto} ${sch.startTime}`;
+            }).join(', ');
+
+            // 2. Calcular sus horas del mes actual
+            const report = await classService.getProfessorProductivity(prof._id, startOfMonth, endOfMonth);
+            const totalHours = report.reduce((acc, curr) => acc + curr.totalHoursWorked, 0);
+
+            return {
+                _id: prof._id,
+                name: prof.name,
+                speciality: prof.speciality.join(' - '),
+                clasesAsignadas: clasesAsignadas || 'Sin clases',
+                horasMes: `${totalHours}hs`
+            };
+        }));
+
+        res.status(200).json({ status: 'success', payload: directory });
+    } catch (error) {
+        console.error("Error en getProfessorsDirectory:", error);
+        res.status(500).json({ status: 'error', error: 'Error al obtener profesores' });
+    }
+};
+
+export const getStudentsDirectory = async (req, res) => {
+    try {
+        const students = await userService.findByRole('alumno');
+        const directory = await Promise.all(students.map(async (student) => {
+            const memberships = await membershipService.getAll({ studentId: student._id, status: 'active' });
+            const activeM = memberships.length > 0 ? memberships[0] : null;
+            
+            let planName = "-";
+            let isDefaulter = true;
+            let usage = "0/0";
+
+            if (activeM) {
+                isDefaulter = new Date(activeM.expireDate) < new Date();
+                const plan = await planService.getBy({ _id: activeM.planId });
+                planName = plan ? plan.name : "-";
+                usage = `${activeM.usedClassesThisMonth}/${(plan ? plan.weeklyClasses : 0) * 4}`;
+            }
+
+            return {
+                _id: student._id,
+                name: student.name,
+                planName,
+                expireDate: activeM ? activeM.expireDate : null,
+                isDefaulter,
+                usage
+            };
+        }));
+
+        res.status(200).json({ status: 'success', payload: directory });
+    } catch (error) {
+        res.status(500).json({ status: 'error', error: 'Error al obtener el directorio' });
     }
 };

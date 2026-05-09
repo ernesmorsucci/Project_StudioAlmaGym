@@ -94,21 +94,78 @@ export const deleteClass = async (req, res) => {
  */
 export const getClassesByDate = async (req, res) => {
     try {
-        const { date } = req.query; // Ejemplo: ?date=2023-10-25
-        if (!date) return res.status(400).json({ status: "error", error: "Debe proporcionar una fecha" });
+        // Ahora acepta un rango o un solo día
+        const { date, startDate, endDate } = req.query; 
 
-        const start = new Date(date);
-        start.setHours(0, 0, 0, 0);
-        
-        const end = new Date(date);
-        end.setHours(23, 59, 59, 999);
+        let start, end;
 
-        // Usamos el método especializado que ya definieron en el Repository
-        const classes = await classService.getClassesByDateRange(start, end);
+        if (startDate && endDate) {
+            start = new Date(startDate);
+            start.setHours(0, 0, 0, 0);
+            end = new Date(endDate);
+            end.setHours(23, 59, 59, 999);
+        } else if (date) {
+            start = new Date(date);
+            start.setHours(0, 0, 0, 0);
+            end = new Date(date);
+            end.setHours(23, 59, 59, 999);
+        } else {
+            return res.status(400).json({ status: "error", error: "Proporciona ?date=X o ?startDate=X&endDate=Y" });
+        }
+
+        // Hacemos populate del profesor para que el frontend muestre "Sofía Ramos"
+        const classes = await classService.getAll({ dateTime: { $gte: start, $lte: end }, isActive: true });
         
-        res.status(200).json({ status: "success", payload: classes });
+        // El frontend necesita el nombre del profe
+        const classesPopulated = await Promise.all(classes.map(async (c) => {
+            await c.populate('professorId', 'name');
+            return c;
+        }));
+        
+        res.status(200).json({ status: "success", payload: classesPopulated });
     } catch (error) {
         console.error("Error en getClassesByDate:", error);
-        res.status(500).json({ status: "error", error: "Error al filtrar por fecha" });
+        res.status(500).json({ status: "error", error: "Error al filtrar clases" });
+    }
+};
+
+// NUEVO: P-HDU-02: Reporte de productividad del profesor
+export const getProfessorReport = async (req, res) => {
+    try {
+        const { professorId } = req.params;
+        const { startDate, endDate } = req.query; // Ej: ?startDate=2023-10-01&endDate=2023-10-31
+
+        if (!startDate || !endDate) {
+            return res.status(400).json({ status: "error", error: "Debe proporcionar startDate y endDate en la query" });
+        }
+
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+
+        // Seguridad: Un profesor solo puede ver su propio reporte (o un Admin puede ver cualquiera)
+        if (req.user._id !== professorId && req.user.rol !== 'admin') {
+            return res.status(403).json({ status: "error", error: "No tienes permiso para ver el reporte de otro profesor" });
+        }
+
+        const report = await classService.getProfessorProductivity(professorId, start, end);
+        
+        // Sumar totales para facilitar el trabajo al frontend
+        const totalOverallHours = report.reduce((acc, curr) => acc + curr.totalHoursWorked, 0);
+
+        const rawClasses = await classService.getClassesByDateRange(start, end);
+        const professorClasses = rawClasses.filter(c => c.professorId.toString() === professorId);
+
+        res.status(200).json({ 
+            status: "success", 
+            payload: {
+                summary: report,
+                totalOverallHours,
+                classesList: professorClasses // El frontend iterará sobre este array
+            }
+        });
+    } catch (error) {
+        console.error("Error en getProfessorReport:", error);
+        res.status(500).json({ status: "error", error: "Error al generar el reporte de productividad" });
     }
 };

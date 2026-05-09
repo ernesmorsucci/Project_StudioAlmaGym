@@ -14,6 +14,7 @@ import recurrentRouter from "./routes/recurrentSchedule.routes.js";
 import reserveRouter from "./routes/reserve.routes.js";
 import notificationRouter from "./routes/notification.routes.js";
 import { startCronJobs } from "./utils/cron.js";
+import dashboardRouter from "./routes/dashboard.routes.js";
 
 if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET no definido en .env");
 
@@ -33,7 +34,7 @@ app.use("/api/schedules", recurrentRouter);
 app.use("/api/reserves", reserveRouter);
 app.use("/api/notifications", notificationRouter);
 app.use("/api/auth", authRouter);
-
+app.use("/api/dashboard", dashboardRouter);
 
 
 

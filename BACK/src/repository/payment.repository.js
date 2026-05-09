@@ -8,6 +8,13 @@ export default class PaymentRepository extends GenericRepository {
         super(dao);
     }
 
+    // Sobrescribimos el getAll genérico para traer los datos cruzados
+    getAll = () => {
+        return this.dao.model.find()
+            .populate('studentId', 'name email')
+            .populate('planId', 'name');
+    }
+
     /**
      * Marca un pago como completado (CDU-07).
      * Registra el método de pago y la fecha exacta de la transacción.
@@ -56,4 +63,6 @@ export default class PaymentRepository extends GenericRepository {
             expiration: { $lt: currentDate }
         });
     }
+
+
 }

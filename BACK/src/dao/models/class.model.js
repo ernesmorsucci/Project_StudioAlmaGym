@@ -7,6 +7,11 @@ const schema = new mongoose.Schema({
         type: String,
         required: true
     },
+    classType: {
+        type: String,
+        enum: ['Reformer', 'Mat'],
+        default: 'Reformer'
+    },
     professorId:{
         type: mongoose.SchemaTypes.ObjectId,
         ref: 'User',

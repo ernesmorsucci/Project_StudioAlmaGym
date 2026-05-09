@@ -58,14 +58,16 @@ export const updateSchedule = async (req, res) => {
     try {
         const { rid } = req.params;
         const updateData = req.body;
+        // El frontend nos dirá qué quiere hacer: 'check', 'future_only', 'force'
+        const actionMode = req.query.mode || 'check'; 
+        const adminId = req.user._id;
 
-        const result = await recurrentScheduleService.update(rid, updateData);
-        if (!result) return res.status(404).json({ status: "error", error: "Plantilla no encontrada" });
-
-        res.status(200).json({ status: "success", payload: result });
+        const response = await recurrentScheduleService.updateWithProtection(rid, updateData, actionMode, adminId);
+        
+        res.status(200).json({ status: "success", payload: response });
     } catch (error) {
         console.error("Error en updateSchedule:", error);
-        res.status(500).json({ status: "error", error: "Error al actualizar la plantilla" });
+        res.status(500).json({ status: "error", error: error.message });
     }
 };
 

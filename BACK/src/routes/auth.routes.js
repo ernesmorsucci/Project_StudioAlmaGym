@@ -1,19 +1,24 @@
+//
 import { Router } from "express";
-import { register, login, logout, getCurrentUser } from "../controllers/auth.controller.js";
+import { 
+    register, 
+    login, 
+    logout, 
+    getCurrentUser, 
+    forgotPassword, 
+    resetPassword 
+} from "../controllers/auth.controller.js";
 import { isAuthenticated } from "../middlewares/auth.middleware.js";
 
 const authRouter = Router();
 
-// Endpoint para registrar un usuario (AD-HDU-12)
 authRouter.post("/register", register);
-
-// Endpoint para iniciar sesión y recibir la cookie JWT (G-HDU-01)
 authRouter.post("/login", login);
-
-// Endpoint para cerrar sesión y destruir la cookie
 authRouter.post("/logout", logout);
-
-// Endpoint para que React valide si hay una sesión activa al recargar la página
 authRouter.get("/current", isAuthenticated, getCurrentUser);
 
-export default authRouter; 
+// NUEVAS RUTAS DE RECUPERACIÓN:
+authRouter.post("/forgot-password", forgotPassword); // Paso 1: Enviar email
+authRouter.post("/reset-password", resetPassword);   // Paso 2: Verificar código y cambiar
+
+export default authRouter;
