@@ -12,6 +12,7 @@ import RecurrentScheduleService from "./recurrentSchedule.service.js";
 import UserService from "./user.service.js";
 import NotificationService from "./notification.service.js";
 
+
 // Instanciamos y exportamos los servicios
 export const reserveService = new ReserveService();
 export const paymentService = new PaymentService();
@@ -21,7 +22,6 @@ export const planService = new PlanService();
 export const recurrentScheduleService = new RecurrentScheduleService();
 export const userService = new UserService();
 export const notificationService = new NotificationService();
-
 // Nota para mantener compatibilidad con algunos controladores:
 // Exportamos paymentService temporalmente también como repoPaymentService 
 // si tu controlador aún usa ese alias en alguna línea de importación.

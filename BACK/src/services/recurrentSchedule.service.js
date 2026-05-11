@@ -1,97 +1,114 @@
-import RecurrentScheduleRepository from "../repository/recurrentSchedule.repository.js";
-import { classService, notificationService, reserveService } from "./index.service.js"; // Importamos otros servicios necesarios
+import RecurrentScheduleDao from '../dao/recurrentSchedule.dao.js';
+import ClassDao from '../dao/class.dao.js';
 
-const recurrentRepo = new RecurrentScheduleRepository();
+const recurrentScheduleDAO = new RecurrentScheduleDao();
+const classDAO = new ClassDao();
 
 export default class RecurrentScheduleService {
-    getAll = () => recurrentRepo.getAll();
-    getBy = (params) => recurrentRepo.getBy(params);
-    create = (doc) => recurrentRepo.create(doc);
-    delete = (id) => recurrentRepo.delete(id);
-    getSchedulesByProfessor = (professorId) => recurrentRepo.getSchedulesByProfessor(professorId);
+    
+    async getAll(filter = {}) {
+        return await recurrentScheduleDAO.get(filter);
+    }
 
-    // EL NUEVO Y PODEROSO MÉTODO DE ACTUALIZACIÓN
-    async updateWithProtection(scheduleId, updateData, actionMode, adminId) {
-        
-        // 1. Buscar las clases de las próximas 2 semanas que ya se generaron con esta plantilla
-        const futureClasses = await classService.getFutureClassesBySchedule(scheduleId);
-        
-        // 2. Si no hay clases futuras generadas, simplemente actualizamos normal y terminamos
-        if (futureClasses.length === 0) {
-            return { result: await recurrentRepo.update(scheduleId, updateData), actionTaken: 'updated_simple' };
+    async getById(id) {
+        return await recurrentScheduleDAO.getBy({ _id: id });
+    }
+
+    // =========================================================
+    // MOTOR CORE: Crear Horario, Validar y Generar Clases
+    // =========================================================
+    async createScheduleAndClasses(data) {
+        const { professorId, daysWeek, startTime, endTime, name, classType, maxQuota, forceCreate = false } = data;
+
+        // 1. VALIDACIÓN DE COLISIONES INTELIGENTE
+        const allSchedules = await recurrentScheduleDAO.get({});
+
+        for (const schedule of allSchedules) {
+            // Verificamos si hay algún día de la semana en común
+            const commonDays = schedule.daysWeek.filter(d => daysWeek.includes(d));
+            
+            if (commonDays.length > 0) {
+                // Verificamos si las horas se cruzan: (Inicio A < Fin B) y (Fin A > Inicio B)
+                if (startTime < schedule.endTime && endTime > schedule.startTime) {
+                    
+                    // CASO A: Misma profesora (BLOQUEO TOTAL)
+                    if (schedule.professorId.toString() === professorId.toString()) {
+                        throw new Error(`CRÍTICO: La profesora ya imparte la clase '${schedule.name}' de ${schedule.startTime} a ${schedule.endTime} en esos días.`);
+                    }
+
+                    // CASO B: Otra profesora (ADVERTENCIA DE SALÓN OCUPADO)
+                    if (!forceCreate) {
+                        throw new Error(`ADVERTENCIA: El salón ya está ocupado por la clase '${schedule.name}' (${schedule.startTime} - ${schedule.endTime}). ¿Deseas crearla de todas formas?`);
+                    }
+                }
+            }
         }
 
-        // 3. Revisar cuántas de esas clases ya tienen reservas
-        let affectedClasses = 0;
-        let totalReservations = 0;
-        let studentsToNotify = new Set(); // Usamos Set para no mandar 2 avisos al mismo alumno
+        // 2. GUARDAMOS EL HORARIO (La plantilla semanal)
+        const newSchedule = await recurrentScheduleDAO.save(data);
 
-        for (const fClass of futureClasses) {
-            if (fClass.occupiedQuota > 0) {
-                affectedClasses++;
-                totalReservations += fClass.occupiedQuota;
+        // 3. GENERADOR DE CLASES REALES (Próximos 14 días)
+        const classesToCreate = [];
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        for (let i = 0; i < 14; i++) {
+            const currentDate = new Date(today);
+            currentDate.setDate(today.getDate() + i);
+            const dayOfWeek = currentDate.getDay(); 
+
+            // Si el día evaluado está dentro de los días elegidos por el Admin
+            if (daysWeek.includes(dayOfWeek)) {
                 
-                // Buscar quiénes son los alumnos para mandarles la notificación después
-                const reserves = await reserveService.getClassReservationsWithDefaulters(fClass._id);
-                reserves.forEach(r => {
-                    if(r.status === 'confirmed') studentsToNotify.add(r.studentId._id.toString());
+                const [startHour, startMin] = startTime.split(':');
+                const classDateTime = new Date(currentDate);
+                classDateTime.setHours(parseInt(startHour), parseInt(startMin), 0, 0);
+
+                const [endHour, endMin] = endTime.split(':');
+                const classEndTime = new Date(currentDate);
+                classEndTime.setHours(parseInt(endHour), parseInt(endMin), 0, 0);
+
+                // Control de seguridad para evitar duplicar clases si el proceso se corre dos veces
+                const existingClass = await classDAO.get({
+                    professorId,
+                    dateTime: classDateTime
                 });
+
+                if (!existingClass || existingClass.length === 0) {
+                    classesToCreate.push({
+                        name: name,
+                        classType: classType || 'Mat',
+                        professorId: professorId,
+                        recurrentScheduleId: newSchedule._id,
+                        dateTime: classDateTime,
+                        endTime: classEndTime,
+                        maxQuota: maxQuota,
+                        occupiedQuota: 0,
+                        isActive: true
+                    });
+                }
             }
         }
 
-        // ==========================================
-        // MODO 1: 'check' -> El frontend solo quiere preguntar qué pasaría
-        // ==========================================
-        if (actionMode === 'check') {
-            return {
-                warning: true,
-                message: `Existen ${futureClasses.length} clases ya generadas en las próximas 2 semanas. ${affectedClasses} de ellas ya tienen reservas (Total: ${totalReservations} alumnos afectados).`,
-                futureClassesCount: futureClasses.length,
-                affectedReservations: totalReservations
-            };
+        // Guardado masivo de las instancias de clase
+        for (const classData of classesToCreate) {
+            await classDAO.save(classData);
         }
 
-        // ==========================================
-        // MODO 2: 'future_only' -> Actualizar plantilla, pero dejar las 2 semanas intactas
-        // ==========================================
-        if (actionMode === 'future_only') {
-            const result = await recurrentRepo.update(scheduleId, updateData);
-            return { result, actionTaken: 'updated_future_only', message: "Plantilla actualizada. Las próximas 2 semanas no sufrirán cambios." };
-        }
+        return newSchedule;
+    }
 
-        // ==========================================
-        // MODO 3: 'force' -> Cambiar TODO y notificar
-        // ==========================================
-        if (actionMode === 'force') {
-            // 1. Actualizar la plantilla
-            const result = await recurrentRepo.update(scheduleId, updateData);
+    // =========================================================
+    // ACTUALIZACIÓN Y BORRADO
+    // =========================================================
+    async updateSchedule(id, data) {
+        // Por ahora actualizamos solo la plantilla.
+        // A futuro implementaremos la lógica de "Efecto dominó" para clases sin reservas.
+        return await recurrentScheduleDAO.update(id, data);
+    }
 
-            // 2. Actualizar las clases futuras
-            await classService.updateFutureClasses(scheduleId, {
-                startTime: updateData.startTime, // Asumiendo que quisieron cambiar la hora
-                endTime: updateData.endTime,
-                professorId: updateData.professorId,
-                maxQuota: updateData.maxQuota
-                // Nota: cambiar los daysWeek implicaría borrar y recrear clases, es un flujo más complejo.
-            });
-
-            // 3. Enviar notificaciones a los alumnos afectados
-            if (studentsToNotify.size > 0) {
-                await notificationService.create({
-                    adminId: adminId,
-                    message: `¡Atención! Ha habido un cambio de horario o profesor en tu clase recurrente de ${updateData.name || 'Pilates'}. Por favor revisa tu calendario de reservas.`,
-                    receivers: 'specific',
-                    studentIds: Array.from(studentsToNotify)
-                });
-            }
-
-            return { 
-                result, 
-                actionTaken: 'updated_forced', 
-                message: `Plantilla y ${futureClasses.length} clases actualizadas. Se notificó a ${studentsToNotify.size} alumnos.` 
-            };
-        }
-
-        throw new Error("Modo de actualización no válido");
+    async deleteSchedule(id) {
+        // Eliminamos la plantilla para detener la generación automática
+        return await recurrentScheduleDAO.delete(id);
     }
 }

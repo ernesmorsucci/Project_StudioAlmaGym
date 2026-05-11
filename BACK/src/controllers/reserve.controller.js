@@ -1,73 +1,60 @@
-import ReserveService from "../services/reserve.service.js";
-import { reserveService as repoReserveService } from "../services/index.service.js"; // Para métodos que aún no migramos
+import { reserveService } from "../services/index.service.js";
 
-const reserveService = new ReserveService();
-
-export const getAllReserves = async (req, res) => {
-    try {
-        const reserves = await repoReserveService.getAll();
-        res.status(200).json({ status: "success", payload: reserves });
-    } catch (error) {
-        res.status(500).json({ status: "error", error: "Error al obtener las reservas" });
-    }
-};
-
-export const getStudentReservations = async (req, res) => {
-    try {
-        const { uid } = req.params;
-        if (req.user._id !== uid && req.user.rol !== 'admin') {
-            return res.status(403).json({ status: "error", error: "Acceso denegado" });
-        }
-        const reserves = await repoReserveService.findUserReservations(uid);
-        res.status(200).json({ status: "success", payload: reserves });
-    } catch (error) {
-        res.status(500).json({ status: "error", error: "Error interno" });
-    }
-};
-
-export const getClassReservations = async (req, res) => {
-    try {
-        const { cid } = req.params;
-        // USAMOS EL NUEVO MÉTODO DEL SERVICIO (Detecta morosos)
-        const reserves = await reserveService.getClassReservationsWithDefaulters(cid);
-        res.status(200).json({ status: "success", payload: reserves });
-    } catch (error) {
-        res.status(500).json({ status: "error", error: error.message });
-    }
-};
-
+// 1. Crear una reserva
 export const createReserve = async (req, res) => {
     try {
-        if (!req.body.classId) return res.status(400).json({ status: "error", error: "Falta el ID de la clase" });
+        const { studentId, scheduleId, date } = req.body;
+
+        if (!studentId || !scheduleId || !date) {
+            return res.status(400).json({ status: "error", error: "Faltan datos obligatorios para la reserva." });
+        }
+
+        // Toda la lógica de negocio y validación está en el servicio
+        const result = await reserveService.createReserve(studentId, scheduleId, date);
         
-        // TODA LA LÓGICA DELEGADA AL SERVICIO
-        const result = await reserveService.createReservation(req.user._id, req.body.classId);
-        res.status(201).json({ status: "success", payload: result.reserve, message: result.message });
+        res.status(201).json({ status: "success", message: "Reserva confirmada.", payload: result });
     } catch (error) {
+        console.error("Error al crear reserva:", error.message);
         res.status(400).json({ status: "error", error: error.message });
     }
 };
 
+// 2. Cancelar una reserva (y devolver el cupo)
 export const cancelReserve = async (req, res) => {
     try {
-        // TODA LA LÓGICA DELEGADA AL SERVICIO
-        const result = await reserveService.cancelReservation(req.params.rid, req.user);
-        res.status(200).json({ status: "success", message: result.message });
+        const { rid } = req.params;
+        
+        const result = await reserveService.cancelReserve(rid);
+        
+        res.status(200).json({ status: "success", message: "Reserva cancelada correctamente.", payload: result });
     } catch (error) {
+        console.error("Error al cancelar reserva:", error.message);
         res.status(400).json({ status: "error", error: error.message });
     }
 };
 
-export const markAttendance = async (req, res) => {
+// 3. Obtener reservas de un alumno específico (Para el Modal del Admin)
+export const getStudentReserves = async (req, res) => {
     try {
-        const { rid } = req.params;
-        const { assistance } = req.body;
-        if (!['assisted', 'absent'].includes(assistance)) {
-            return res.status(400).json({ status: "error", error: "Estado inválido" });
-        }
-        const result = await repoReserveService.markAttendance(rid, assistance);
-        res.status(200).json({ status: "success", message: "Asistencia registrada", payload: result });
+        const { uid } = req.params;
+
+        // Buscamos todas las reservas de este alumno
+        // Nota: El repository idealmente debería hacer un .populate('scheduleId') para traer el nombre de la clase
+        const reserves = await reserveService.getAll({ studentId: uid });
+
+        res.status(200).json({ status: "success", payload: reserves });
     } catch (error) {
-        res.status(500).json({ status: "error", error: "Error interno" });
+        console.error("Error al obtener reservas del alumno:", error);
+        res.status(500).json({ status: "error", error: "Error interno del servidor." });
+    }
+};
+
+// 4. Obtener TODAS las reservas (Para reportes del Admin)
+export const getAllReserves = async (req, res) => {
+    try {
+        const reserves = await reserveService.getAll();
+        res.status(200).json({ status: "success", payload: reserves });
+    } catch (error) {
+        res.status(500).json({ status: "error", error: "Error interno del servidor." });
     }
 };

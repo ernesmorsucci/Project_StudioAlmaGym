@@ -7,8 +7,11 @@ import {
     deleteUser, 
     getByEmail, 
     getAllByRole,
-    getProfessorsDirectory, // Asegúrate de que esté importado
-    getStudentsDirectory   // Añadimos este para la gestión de alumnos
+    getProfessorsDirectory, 
+    getStudentsDirectory,   
+    getProfessors,
+    getStudentsDashboard,
+    createStudentWithMembership // <-- NUEVA IMPORTACIÓN
 } from "../controllers/users.controller.js";
 import { isAuthenticated, checkRole } from "../middlewares/auth.middleware.js";
 
@@ -19,6 +22,11 @@ const usersRouter = Router();
 // ==========================================
 usersRouter.get("/directory/professors", isAuthenticated, checkRole(['admin']), getProfessorsDirectory);
 usersRouter.get("/directory/students", isAuthenticated, checkRole(['profesor', 'admin']), getStudentsDirectory);
+usersRouter.get("/professors", isAuthenticated, checkRole(['admin']), getProfessors); 
+usersRouter.get("/students-dashboard", isAuthenticated, checkRole(['admin']), getStudentsDashboard);
+
+// 👇 NUESTRA NUEVA RUTA PARA CREAR ALUMNO + MEMBRESÍA 👇
+usersRouter.post("/student-with-membership", isAuthenticated, checkRole(['admin']), createStudentWithMembership);
 
 usersRouter.get("/", isAuthenticated, checkRole(['admin']), getAllUsers);
 usersRouter.post("/", isAuthenticated, checkRole(['admin']), addUser);

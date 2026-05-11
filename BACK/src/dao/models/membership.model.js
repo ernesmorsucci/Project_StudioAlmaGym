@@ -38,6 +38,7 @@ const schema = new mongoose.Schema({
 
 schema.index({ studentId: 1, status: 1 });
 
-const membershipModel = mongoose.model(collection, schema);
+// Esto evita que Mongoose intente crear el modelo dos veces al reiniciar
+const membershipModel = mongoose.models[collection] || mongoose.model(collection, schema);
 
 export default membershipModel;

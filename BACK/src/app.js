@@ -1,72 +1,67 @@
-import "./utils/env.js";  
-import express from "express";
-import cookieParser from "cookie-parser";
-import cors from "cors";
-import { Server } from "socket.io";
-import authRouter from "./routes/auth.routes.js";
-import connectDB from "./utils/db.js";
-import usersRouter from "./routes/users.routes.js";
-import classRouter from "./routes/class.routes.js";
-import membershipRouter from "./routes/membership.routes.js";
-import paymentRouter from "./routes/payment.routes.js";
-import planRouter from "./routes/plan.routes.js";
-import recurrentRouter from "./routes/recurrentSchedule.routes.js";
-import reserveRouter from "./routes/reserve.routes.js";
-import notificationRouter from "./routes/notification.routes.js";
-import { startCronJobs } from "./utils/cron.js";
-import dashboardRouter from "./routes/dashboard.routes.js";
+import './utils/env.js';
+import express from 'express';
+import cors from 'cors';
+import cookieParser from 'cookie-parser';
+import mongoose from 'mongoose'; // 👈 LIBRERÍA RESTAURADA
+import { createServer } from 'http'; 
+import { Server } from 'socket.io';  
 
-if (!process.env.JWT_SECRET) throw new Error("JWT_SECRET no definido en .env");
+// 1. IMPORTAMOS TUS ROUTERS
+import authRouter from './routes/auth.routes.js';
+import classRouter from './routes/class.routes.js';
+import dashboardRouter from './routes/dashboard.routes.js';
+import membershipRouter from './routes/membership.routes.js';
+import notificationRouter from './routes/notification.routes.js';
+import paymentRouter from './routes/payment.routes.js';
+import planRouter from './routes/plan.routes.js';
+import recurrentScheduleRouter from './routes/recurrentSchedule.routes.js';
+import reserveRouter from './routes/reserve.routes.js';
+import usersRouter from './routes/users.routes.js';
 
 const app = express();
-const PORT = process.env.PORT || 8080;
 
-app.use(express.json());
-app.use(cookieParser());
-app.use(cors({ origin: "http://localhost:5173", credentials: true }));
+// 2. CONEXIÓN EXPLÍCITA A MONGODB (Evita el timeout)
+const MONGO_URI = process.env.MONGO_URI || process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/almagym';
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('🟢 Base de datos MongoDB conectada exitosamente'))
+  .catch(err => console.error('🔴 Error conectando a MongoDB:', err));
 
-app.use("/api/users", usersRouter);
-app.use("/api/classes", classRouter);
-app.use("/api/memberships", membershipRouter);
-app.use("/api/payments", paymentRouter);
-app.use("/api/plan", planRouter);
-app.use("/api/schedules", recurrentRouter);
-app.use("/api/reserves", reserveRouter);
-app.use("/api/notifications", notificationRouter);
-app.use("/api/auth", authRouter);
-app.use("/api/dashboard", dashboardRouter);
-
-
-
-
-let io;
-
-const startServer = async () => {
-    try {
-        await connectDB();
-        startCronJobs();
-        const httpServer = app.listen(PORT, () =>
-            console.log(`Servidor en puerto ${PORT}`)
-        );
-
-        io = new Server(httpServer, {
-            cors: { origin: "http://localhost:5173", credentials: true }
-        });
-
-        io.on("connection", (socket) => {
-            console.log("Cliente conectado al WebSocket:", socket.id);
-
-            socket.on("disconnect", () => {
-                console.log("Cliente desconectado:", socket.id);
-            });
-        });
-
-    } catch (error) {
-        console.error("Error al iniciar el servidor:", error.message);
-        process.exit(1);
+// 3. CONFIGURACIÓN DE SOCKET.IO
+const httpServer = createServer(app);
+const io = new Server(httpServer, {
+    cors: {
+        origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+        credentials: true
     }
-};
-
-startServer();
+});
 
 export { io };
+
+// 4. MIDDLEWARES GLOBALES
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+app.use(cookieParser()); 
+
+// 5. CORS
+app.use(cors({
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    credentials: true
+}));
+
+// 6. ROUTERS
+app.use('/api/auth', authRouter);
+app.use('/api/classes', classRouter);
+app.use('/api/dashboard', dashboardRouter);
+app.use('/api/memberships', membershipRouter);
+app.use('/api/notifications', notificationRouter);
+app.use('/api/payments', paymentRouter);
+app.use('/api/plans', planRouter);
+app.use('/api/schedules', recurrentScheduleRouter);
+app.use('/api/reserves', reserveRouter);
+app.use('/api/users', usersRouter);
+
+// 7. INICIALIZACIÓN DEL SERVIDOR
+const PORT = process.env.PORT || 8080;
+httpServer.listen(PORT, () => {
+    console.log(`🚀 Servidor Studio Alma encendido en el puerto ${PORT}`);
+});

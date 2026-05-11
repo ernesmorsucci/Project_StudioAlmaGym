@@ -1,7 +1,8 @@
 import { Router } from "express";
 import { 
+    getAvailableClasses, // <- IMPORTAMOS EL NUEVO CONTROLADOR
     getAllClasses, getClassById, addClass, updateClass, deleteClass, getClassesByDate,
-    getProfessorReport // <- IMPORTA EL NUEVO CONTROLADOR
+    getProfessorReport 
 } from "../controllers/class.controller.js";
 import { isAuthenticated, checkRole } from "../middlewares/auth.middleware.js";
 
@@ -11,9 +12,13 @@ const classRouter = Router();
 classRouter.get("/", isAuthenticated, getAllClasses);
 classRouter.get("/filter", isAuthenticated, getClassesByDate);
 
-// NUEVO: Ruta para el reporte de productividad (Profesores y Admin)
+// NUEVO: Ruta del calendario (¡Va antes de /:cid para evitar el error de Cast to ObjectId!)
+classRouter.get("/available", isAuthenticated, getAvailableClasses);
+
+// Ruta para el reporte de productividad (Profesores y Admin)
 classRouter.get("/report/:professorId", isAuthenticated, checkRole(['profesor', 'admin']), getProfessorReport);
 
+// Ruta dinámica por ID (Siempre al final de los GET)
 classRouter.get("/:cid", isAuthenticated, getClassById);
 
 // Rutas de escritura (Solo Admin)

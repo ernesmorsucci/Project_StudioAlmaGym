@@ -1,140 +1,105 @@
-import ReserveRepository from "../repository/reserve.repository.js";
+import ReserveRepository from "../repository/reserve.repository.js"; 
 import MembershipRepository from "../repository/membership.repository.js";
 import PlanRepository from "../repository/plan.repository.js";
-import ClassRepository from "../repository/class.repository.js";
-import { io } from "../app.js"; // 👈 Importamos el Socket.io
 
 const reserveRepo = new ReserveRepository();
 const membershipRepo = new MembershipRepository();
 const planRepo = new PlanRepository();
-const classRepo = new ClassRepository();
 
 export default class ReserveService {
     
-    // P-HDU-01: Obtener lista de clase detectando morosos visuales
-    async getClassReservationsWithDefaulters(classId) {
-        const reserves = await reserveRepo.findByClass(classId);
-        
-        const enrichedReserves = await Promise.all(reserves.map(async (reserve) => {
-            const membership = await membershipRepo.getBy({ studentId: reserve.studentId._id, status: 'active' });
-            const isDefaulter = !membership || new Date(membership.expireDate) < new Date();
-            
-            // NUEVO: Buscamos el nombre del plan para el frontend
-            let planName = "Sin plan activo";
-            if (membership) {
-                const plan = await planRepo.getBy({ _id: membership.planId });
-                if (plan) planName = plan.name;
-            }
-            
-            return {
-                ...reserve.toObject(),
-                isDefaulter,
-                planName // Enviamos el dato listo para pintar
-            };
-        }));
-        
-        return enrichedReserves;
+    // ==========================================
+    // MÉTODOS CRUD BÁSICOS
+    // ==========================================
+    async getAll(filter = {}) { 
+        return reserveRepo.get ? await reserveRepo.get(filter) : await reserveRepo.getAll(filter); 
+    }
+    
+    async getBy(filter) { 
+        return await reserveRepo.getBy(filter); 
     }
 
-    // CDU-01: Crear Reserva
-    async createReservation(studentId, classId) {
-        const targetClass = await classRepo.getBy({ _id: classId });
-        if (!targetClass) throw new Error("Clase no encontrada");
-        if (!targetClass.isActive) throw new Error("La clase no está disponible");
+    // ==========================================
+    // LÓGICA DE NEGOCIO: CREAR RESERVA
+    // ==========================================
+    async createReserve(studentId, scheduleId, dateString) {
+        const reserveDate = new Date(dateString);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
 
+        // 1. Verificar si la fecha no es en el pasado
+        if (reserveDate < today) {
+            throw new Error("No puedes reservar clases en fechas pasadas.");
+        }
+
+        // 2. Verificar que tenga membresía activa
         const membership = await membershipRepo.getBy({ studentId, status: 'active' });
-        if (!membership) throw new Error("No tenés una membresía activa para reservar clases");
-
-        if (new Date(membership.expireDate) < new Date()) {
-            throw new Error("Tu membresía ha caducado. Por favor, renová tu plan.");
+        if (!membership) {
+            throw new Error("El alumno no tiene una membresía activa para reservar.");
         }
 
-        const planData = await planRepo.getBy({ _id: membership.planId });
-        const monthlyLimit = planData.weeklyClasses * 4; 
+        // 3. Verificar que la reserva no supere la fecha de vencimiento del plan
+        if (reserveDate > new Date(membership.expireDate)) {
+            throw new Error("La fecha de reserva supera el vencimiento de su plan actual.");
+        }
+
+        // 4. Verificar disponibilidad de cupos (clases usadas vs permitidas)
+        const plan = await planRepo.getBy({ _id: membership.planId });
+        if (!plan) throw new Error("Error interno: Plan de membresía no encontrado.");
         
-        const absences = await reserveRepo.countAbsencesInPeriod(studentId, membership.currentPeriod);
-        const totalAllowedThisMonth = monthlyLimit + absences; 
+        const totalClassesAllowed = (plan.weeklyClasses || 0) * 4;
 
-        if (membership.usedClassesThisMonth >= totalAllowedThisMonth) {
-            throw new Error(`Alcanzaste el límite de tu plan (${monthlyLimit} clases mensuales).`);
+        if (membership.usedClassesThisMonth >= totalClassesAllowed) {
+            throw new Error("El alumno ya consumió todas las clases de su ciclo actual.");
         }
 
-        const existingReserve = await reserveRepo.getBy({ studentId, classId, status: { $ne: 'canceled' } });
-        if (existingReserve) throw new Error("Ya estás inscripto en esta clase");
-
-        const hasQuota = targetClass.occupiedQuota < targetClass.maxQuota;
-        let newReserveData = { studentId, classId, status: 'confirmed', assistance: 'pending', waitingPosition: 0 };
-
-        if (hasQuota) {
-            await classRepo.incrementOccupiedQuota(classId, 1);
-            await membershipRepo.incrementUsedClasses(membership._id);
-            
-            // 📢 NOTIFICACIÓN EN TIEMPO REAL: Alguien tomó un cupo
-            if (io) io.emit("class_updated", { classId: classId });
-
-        } else {
-            const pendingList = await reserveRepo.findByClass(classId);
-            const pendingCount = pendingList.filter(r => r.status === 'pending').length;
-            newReserveData.status = 'pending';
-            newReserveData.waitingPosition = pendingCount + 1;
-            
-            // 📢 NOTIFICACIÓN EN TIEMPO REAL: Alguien se sumó a la lista de espera
-            if (io) io.emit("class_updated", { classId: classId });
+        // 5. Verificar duplicados (que no haya reservado ya esta misma clase este mismo día)
+        const existingReserve = await reserveRepo.getBy({ 
+            studentId, 
+            scheduleId, 
+            date: reserveDate, 
+            status: 'reserved' 
+        });
+        if (existingReserve) {
+            throw new Error("El alumno ya tiene una reserva activa para este horario y fecha.");
         }
 
-        const result = await reserveRepo.create(newReserveData);
-        return {
-            reserve: result,
-            message: hasQuota ? "Reserva confirmada" : `Añadido a lista de espera (posición ${newReserveData.waitingPosition})`
-        };
+        // 6. ¡TODO OK! Creamos la reserva
+        const newReserve = await reserveRepo.create({
+            studentId,
+            scheduleId,
+            date: reserveDate,
+            status: 'reserved'
+        });
+
+        // 7. Restamos un cupo (sumando 1 al historial de clases usadas)
+        await membershipRepo.update(membership._id, {
+            usedClassesThisMonth: membership.usedClassesThisMonth + 1
+        });
+
+        return newReserve;
     }
 
-    // CDU-02: Cancelar Reserva y automatizar lista de espera
-    async cancelReservation(reserveId, user) {
+    // ==========================================
+    // LÓGICA DE NEGOCIO: CANCELAR RESERVA
+    // ==========================================
+    async cancelReserve(reserveId) {
         const reserve = await reserveRepo.getBy({ _id: reserveId });
-        if (!reserve || reserve.status === 'canceled') {
-            throw new Error("Reserva no válida o ya cancelada");
-        }
+        if (!reserve) throw new Error("Reserva no encontrada.");
+        if (reserve.status === 'cancelled') throw new Error("Esta reserva ya estaba cancelada.");
 
-        if (reserve.studentId.toString() !== user._id && user.rol !== 'admin') {
-            throw new Error("No tenés permiso para cancelar esta reserva");
-        }
+        // 1. Marcamos la reserva como cancelada
+        const updatedReserve = await reserveRepo.update(reserveId, { status: 'cancelled' });
 
+        // 2. Buscamos su membresía activa para DEVOLVERLE el cupo
         const membership = await membershipRepo.getBy({ studentId: reserve.studentId, status: 'active' });
-
-        await reserveRepo.update(reserveId, { status: 'canceled', waitingPosition: 0 });
-
-        if (reserve.status === 'confirmed') {
-            await classRepo.decrementOccupiedQuota(reserve.classId, 1);
-            if (membership) await membershipRepo.decrementUsedClasses(membership._id);
-
-            const nextInLine = await reserveRepo.getNextInWaitingList(reserve.classId);
-            
-            if (nextInLine) {
-                const nextMembership = await membershipRepo.getBy({ studentId: nextInLine.studentId, status: 'active' });
-
-                if (nextMembership && new Date(nextMembership.expireDate) >= new Date()) {
-                    await reserveRepo.confirmWaitingReservation(nextInLine._id);
-                    await classRepo.incrementOccupiedQuota(reserve.classId, 1);
-                    await membershipRepo.incrementUsedClasses(nextMembership._id);
-                    await reserveRepo.shiftWaitingList(reserve.classId, 1);
-                    // (Aquí en el futuro iría la notificación de email que armamos para el alumno)
-                } else {
-                    await reserveRepo.update(nextInLine._id, { status: 'canceled', waitingPosition: 0 });
-                    await reserveRepo.shiftWaitingList(reserve.classId, 1);
-                }
-            }
-
-            // 📢 NOTIFICACIÓN EN TIEMPO REAL: Se liberó/ocupó un cupo o se movió la lista
-            if (io) io.emit("class_updated", { classId: reserve.classId });
-
-        } else if (reserve.status === 'pending') {
-            await reserveRepo.shiftWaitingList(reserve.classId, reserve.waitingPosition);
-            
-            // 📢 NOTIFICACIÓN EN TIEMPO REAL: Alguien se bajó de la lista de espera
-            if (io) io.emit("class_updated", { classId: reserve.classId });
+        
+        if (membership && membership.usedClassesThisMonth > 0) {
+            await membershipRepo.update(membership._id, {
+                usedClassesThisMonth: membership.usedClassesThisMonth - 1
+            });
         }
 
-        return { message: "Reserva cancelada correctamente" };
+        return updatedReserve;
     }
 }

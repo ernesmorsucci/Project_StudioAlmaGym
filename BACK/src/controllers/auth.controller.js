@@ -35,7 +35,7 @@ export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        const user = await userService.findByEmail(email);
+        const user = await userService.getBy({ email: email });
         if (!user || !await isValidPassword(user, password)) {
             return res.status(401).json({ error: "Credenciales inválidas" });
         }
@@ -76,7 +76,7 @@ export const getCurrentUser = (req, res) => {
 export const forgotPassword = async (req, res) => {
     try {
         const { email } = req.body;
-        const user = await userService.findByEmail(email);
+        const user = await userService.getBy({ email: email });
 
         if (!user) {
             // Por seguridad, no confirmamos si el email existe o no
@@ -112,7 +112,7 @@ export const resetPassword = async (req, res) => {
             return res.status(400).json({ error: "Faltan datos obligatorios" });
         }
 
-        const user = await userService.findByEmail(email);
+        const user = await userService.getBy({ email: email });
 
         if (!user || user.resetCode !== code || new Date() > user.resetCodeExpires) {
             return res.status(400).json({ error: "El código es inválido o ha expirado." });

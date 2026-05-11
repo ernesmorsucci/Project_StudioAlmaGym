@@ -43,6 +43,6 @@ const schema = new mongoose.Schema({
 
 schema.index({ studentId: 1, date: -1 });
 
-const paymentModel = mongoose.model(collection, schema);
+const paymentModel = mongoose.models[collection] || mongoose.model(collection, schema);
 
 export default paymentModel;

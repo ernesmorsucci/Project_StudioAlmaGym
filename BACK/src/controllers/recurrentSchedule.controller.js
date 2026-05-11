@@ -1,107 +1,76 @@
-import { recurrentScheduleService } from "../services/index.service.js";
+import { recurrentScheduleService } from '../services/index.service.js';
 
-// 1. Obtener todas las plantillas de horarios (Admin)
+export const createSchedule = async (req, res) => {
+    try {
+        const scheduleData = req.body;
+
+        // Validaciones básicas de seguridad
+        if (!scheduleData.name || !scheduleData.professorId || !scheduleData.daysWeek || scheduleData.daysWeek.length === 0) {
+            return res.status(400).json({ status: 'error', error: 'Faltan datos obligatorios o no has seleccionado ningún día.' });
+        }
+
+        if (scheduleData.startTime >= scheduleData.endTime) {
+            return res.status(400).json({ status: 'error', error: 'La hora de inicio debe ser menor a la hora de fin.' });
+        }
+
+        // Mandamos los datos al motor
+        const result = await recurrentScheduleService.createScheduleAndClasses(scheduleData);
+
+        res.status(201).json({ 
+            status: 'success', 
+            payload: result, 
+            message: 'Horario y clases generadas con éxito.' 
+        });
+
+    } catch (error) {
+        console.error("Error al crear horario:", error.message);
+        // Devolvemos el error exacto (ej. Colisión detectada) para que el Front lo muestre
+        res.status(400).json({ status: 'error', error: error.message });
+    }
+};
+
 export const getAllSchedules = async (req, res) => {
     try {
         const schedules = await recurrentScheduleService.getAll();
-        res.status(200).json({ status: "success", payload: schedules });
+        
+        // Hacemos populate para que el Frontend reciba el nombre de la profesora y no un ID impronunciable
+        const populatedSchedules = await Promise.all(schedules.map(async (s) => {
+            if (s.professorId) {
+                await s.populate('professorId', 'name');
+            }
+            return s;
+        }));
+
+        res.json({ status: 'success', payload: populatedSchedules });
     } catch (error) {
-        console.error("Error en getAllSchedules:", error);
-        res.status(500).json({ status: "error", error: "Error al obtener las plantillas" });
+        console.error("Error obteniendo horarios:", error);
+        res.status(500).json({ status: 'error', error: 'Error al obtener los horarios.' });
     }
 };
 
-// 2. Obtener una plantilla específica por ID
-export const getScheduleById = async (req, res) => {
-    try {
-        const { rid } = req.params;
-        const schedule = await recurrentScheduleService.getBy({ _id: rid });
-        
-        if (!schedule) return res.status(404).json({ status: "error", error: "Plantilla no encontrada" });
-        
-        res.status(200).json({ status: "success", payload: schedule });
-    } catch (error) {
-        console.error("Error en getScheduleById:", error);
-        res.status(500).json({ status: "error", error: "Error al obtener la plantilla" });
-    }
-};
-
-// 3. Crear una nueva plantilla de horario semanal (Admin)
-export const addSchedule = async (req, res) => {
-    try {
-        const { name, professorId, daysWeek, startTime, endTime, maxQuota } = req.body;
-        
-        if (!name || !professorId || !daysWeek || !startTime || !endTime || !maxQuota) {
-            return res.status(400).json({ status: "error", error: "Faltan datos obligatorios para la plantilla" });
-        }
-
-        const newSchedule = {
-            name,
-            professorId,
-            daysWeek, // Array de números [0, 2, 4] (Dom, Mar, Jue)
-            startTime,
-            endTime,
-            maxQuota,
-            isActive: true
-        };
-
-        const result = await recurrentScheduleService.create(newSchedule);
-        res.status(201).json({ status: "success", payload: result });
-    } catch (error) {
-        console.error("Error en addSchedule:", error);
-        res.status(500).json({ status: "error", error: "Error al crear la plantilla" });
-    }
-};
-
-// 4. Actualizar una plantilla (Admin)
 export const updateSchedule = async (req, res) => {
     try {
-        const { rid } = req.params;
-        const updateData = req.body;
-        // El frontend nos dirá qué quiere hacer: 'check', 'future_only', 'force'
-        const actionMode = req.query.mode || 'check'; 
-        const adminId = req.user._id;
-
-        const response = await recurrentScheduleService.updateWithProtection(rid, updateData, actionMode, adminId);
-        
-        res.status(200).json({ status: "success", payload: response });
+        const updated = await recurrentScheduleService.updateSchedule(req.params.id, req.body);
+        res.json({ status: 'success', message: 'Horario actualizado con éxito.', payload: updated });
     } catch (error) {
-        console.error("Error en updateSchedule:", error);
-        res.status(500).json({ status: "error", error: error.message });
+        console.error("Error al actualizar horario:", error.message);
+        res.status(400).json({ status: 'error', error: error.message });
     }
 };
 
 export const deleteSchedule = async (req, res) => {
     try {
-        const { rid } = req.params;
-        
-        // Cambio a borrado físico
-        const result = await recurrentScheduleService.delete(rid);
-
-        if (!result) return res.status(404).json({ status: "error", error: "Plantilla no encontrada" });
-
-        res.status(200).json({ status: "success", message: "Plantilla de horario eliminada permanentemente" });
+        await recurrentScheduleService.deleteSchedule(req.params.id);
+        res.json({ status: 'success', message: 'Horario eliminado correctamente.' });
     } catch (error) {
-        console.error("Error en deleteSchedule:", error);
-        res.status(500).json({ status: "error", error: "Error al eliminar la plantilla" });
+        console.error("Error al eliminar horario:", error.message);
+        res.status(400).json({ status: 'error', error: error.message });
     }
 };
 
-// ==========================================
-// MÉTODOS ESPECÍFICOS
-// ==========================================
-
-// 6. Obtener plantillas activas de un profesor específico
-export const getSchedulesByProfessor = async (req, res) => {
-    try {
-        const { professorId } = req.params;
-        
-        // Usamos el método especializado del repositorio
-        const schedules = await recurrentScheduleService.getSchedulesByProfessor(professorId);
-        
-        res.status(200).json({ status: "success", payload: schedules });
-    } catch (error) {
-        console.error("Error en getSchedulesByProfessor:", error);
-        res.status(500).json({ status: "error", error: "Error al obtener horarios del profesor" });
-    }
+export default {
+    createSchedule,
+    getAllSchedules,
+    updateSchedule,
+    deleteSchedule
 };

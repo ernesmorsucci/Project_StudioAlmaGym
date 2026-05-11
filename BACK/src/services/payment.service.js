@@ -1,39 +1,87 @@
 import PaymentRepository from "../repository/payment.repository.js";
 import MembershipRepository from "../repository/membership.repository.js";
+import PlanRepository from "../repository/plan.repository.js"; 
 
 const paymentRepo = new PaymentRepository();
 const membershipRepo = new MembershipRepository();
+const planRepo = new PlanRepository(); 
 
 export default class PaymentService {
     
-    /**
-     * CDU-03: Confirmar pago y renovar membresía.
-     * REGLA DE NEGOCIO: La nueva fecha de vencimiento es Fecha_Pago + 30 días.
-     */
-    async confirmPaymentAndRenew(paymentId, method) {
-        const payment = await paymentRepo.getBy({ _id: paymentId });
+    async getAll() { 
+        return paymentRepo.get ? await paymentRepo.get() : await paymentRepo.getAll(); 
+    }
+    
+    async getBy(filter) { 
+        return await paymentRepo.getBy(filter); 
+    }
+    
+    // 🔥 EL NUEVO FLUJO UNIFICADO EXACTO COMO LO PEDISTE
+    async processDirectPayment({ studentId, planId, amount, method }) {
+        const plan = await planRepo.getBy({ _id: planId });
+        if (!plan) throw new Error("Plan no encontrado en la base de datos");
+
+        const today = new Date();
+        let newExpireDate = new Date();
         
-        if (!payment) throw new Error("Pago no encontrado");
-        if (payment.status === 'paid') throw new Error("Este pago ya fue confirmado anteriormente");
+        // 1. Verificamos si TIENE membresía
+        let membership = await membershipRepo.getBy({ studentId, status: 'active' });
 
-        // 1. Marcar pago como pagado en la base de datos
-        const updatedPayment = await paymentRepo.markAsPaid(paymentId, method);
+        if (membership) {
+            // 2A. SI TIENE: La actualizamos
+            let isEarlyRenewal = new Date(membership.expireDate) > today;
 
-        // 2. Calcular nueva fecha de vencimiento (Hoy + 30 días calendario)
-        const newExpireDate = new Date();
-        newExpireDate.setDate(newExpireDate.getDate() + 30);
+            if (isEarlyRenewal) {
+                newExpireDate = new Date(membership.expireDate);
+                newExpireDate.setMonth(newExpireDate.getMonth() + 1);
+            } else {
+                newExpireDate.setMonth(newExpireDate.getMonth() + 1);
+                membership.usedClassesThisMonth = 0;
+                membership.currentPeriod = today;
+            }
 
-        // 3. Renovar la membresía (Resetea créditos y extiende vencimiento)
-        const updatedMembership = await membershipRepo.renewMembership(payment.membershipId, newExpireDate);
+            await membershipRepo.update(membership._id, {
+                expireDate: newExpireDate,
+                planId: plan._id,
+                usedClassesThisMonth: membership.usedClassesThisMonth,
+                currentPeriod: membership.currentPeriod
+            });
+            
+        } else {
+            // 2B. SI NO TIENE: La creamos
+            newExpireDate.setMonth(newExpireDate.getMonth() + 1);
 
-        if (!updatedMembership) {
-            console.error(`ALERTA: Pago ${paymentId} confirmado pero la membresía no fue encontrada.`);
+            const newMembershipData = {
+                studentId: studentId,
+                planId: plan._id,
+                startDate: today,
+                expireDate: newExpireDate,
+                currentPeriod: today,
+                usedClassesThisMonth: 0,
+                status: 'active'
+            };
+
+            membership = membershipRepo.create 
+                ? await membershipRepo.create(newMembershipData) 
+                : await membershipRepo.save(newMembershipData);
         }
 
-        return {
-            payment: updatedPayment,
-            membership: updatedMembership,
-            newExpireDate
+        // 3. LUEGO: Creamos el Payment conectándolo al ID de la membresía lista
+        const newPaymentData = {
+            studentId: studentId,
+            membershipId: membership._id, // Aquí atamos el recibo a la membresía
+            planId: plan._id,
+            amount: amount,
+            date: today,
+            expiration: newExpireDate, 
+            status: 'paid', // El pago ya nace confirmado
+            method: method
         };
+
+        const payment = paymentRepo.create 
+            ? await paymentRepo.create(newPaymentData) 
+            : await paymentRepo.save(newPaymentData);
+
+        return { payment, membership };
     }
 }

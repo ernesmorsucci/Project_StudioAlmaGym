@@ -9,7 +9,7 @@ const schema = new mongoose.Schema({
     },
     classType: {
         type: String,
-        enum: ['Reformer', 'Mat'],
+        enum: ['Reformer', 'Mat', 'Terapeutico','Prenatal','Yogalates','Power_Pilates','Reformer_Pro','Chair','Tower'],
         default: 'Reformer'
     },
     professorId:{

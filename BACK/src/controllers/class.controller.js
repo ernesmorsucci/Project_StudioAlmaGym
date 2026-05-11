@@ -1,6 +1,52 @@
-import { classService } from "../services/index.service.js";
+import { classService, recurrentScheduleService, userService } from "../services/index.service.js";
 
-// 1. Obtener todas las clases (puedes pasarle filtros como { isActive: true })
+// ==========================================
+// NUEVO: Obtener clases para el Calendario
+// ==========================================
+export const getAvailableClasses = async (req, res) => {
+    try {
+        const classes = await classService.getAll({ isActive: true });
+        
+        // 🕵️‍♂️ RAYOS X: Imprimimos en la consola del backend lo que encontró
+        console.log("👉 Clases encontradas en la BD:", classes.length); 
+
+        const formattedClasses = await Promise.all(classes.map(async (c) => {
+            // Manejo de errores por si falla el populate
+            try {
+                if (c.professorId) await c.populate('professorId', 'name');
+            } catch (popErr) {
+                console.log("Aviso: No se pudo cargar el nombre del profesor para la clase", c._id);
+            }
+            
+            // Protección por si dateTime no es una fecha válida
+            let horaFormateada = 'Sin horario';
+            if (c.dateTime) {
+                const fecha = new Date(c.dateTime);
+                if (!isNaN(fecha)) {
+                    horaFormateada = fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+                }
+            }
+
+            return {
+                id: c._id,
+                time: horaFormateada,
+                name: c.name || 'Clase especial',
+                instructor: (c.professorId && c.professorId.name) ? c.professorId.name : 'Profesor no asignado',
+                duration: '60 min',
+                spots: (c.maxQuota || 0) - (c.occupiedQuota || 0),
+                totalSpots: c.maxQuota || 0,
+                status: (c.occupiedQuota >= c.maxQuota) ? 'full' : 'available'
+            };
+        }));
+
+        res.json({ status: 'success', payload: formattedClasses });
+    } catch (error) {
+        console.error("❌ Error en getAvailableClasses:", error);
+        res.status(500).json({ status: 'error', error: 'Error al cargar las clases' });
+    }
+};
+
+// 1. Obtener todas las clases
 export const getAllClasses = async (req, res) => {
     try {
         const classes = await classService.getAll();
@@ -26,12 +72,11 @@ export const getClassById = async (req, res) => {
     }
 };
 
-// 3. Crear una clase nueva (Manual/Puntual)
+// 3. Crear una clase nueva
 export const addClass = async (req, res) => {
     try {
         const { name, professorId, recurrentScheduleId, dateTime, endTime, maxQuota } = req.body;
         
-        // Validación básica de campos obligatorios
         if (!name || !professorId || !dateTime || !endTime || !maxQuota) {
             return res.status(400).json({ status: "error", error: "Faltan datos obligatorios" });
         }
@@ -39,7 +84,7 @@ export const addClass = async (req, res) => {
         const newClass = {
             name,
             professorId,
-            recurrentScheduleId, // Puede ser null si es una clase especial
+            recurrentScheduleId, 
             dateTime,
             endTime,
             maxQuota,
@@ -55,7 +100,7 @@ export const addClass = async (req, res) => {
     }
 };
 
-// 4. Actualizar una clase (ej: cambiar profesor o cupo)
+// 4. Actualizar una clase
 export const updateClass = async (req, res) => {
     try {
         const { cid } = req.params;
@@ -75,8 +120,6 @@ export const updateClass = async (req, res) => {
 export const deleteClass = async (req, res) => {
     try {
         const { cid } = req.params;
-        
-        // Cambio a borrado físico
         const result = await classService.delete(cid);
 
         if (!result) return res.status(404).json({ status: "error", error: "Clase no encontrada" });
@@ -88,15 +131,10 @@ export const deleteClass = async (req, res) => {
     }
 };
 
-/**
- * MÉTODO EXTRA SUGERIDO: Obtener clases por fecha
- * Útil para que la alumna elija qué día quiere ir.
- */
+// 6. Obtener clases por fecha
 export const getClassesByDate = async (req, res) => {
     try {
-        // Ahora acepta un rango o un solo día
         const { date, startDate, endDate } = req.query; 
-
         let start, end;
 
         if (startDate && endDate) {
@@ -113,10 +151,8 @@ export const getClassesByDate = async (req, res) => {
             return res.status(400).json({ status: "error", error: "Proporciona ?date=X o ?startDate=X&endDate=Y" });
         }
 
-        // Hacemos populate del profesor para que el frontend muestre "Sofía Ramos"
         const classes = await classService.getAll({ dateTime: { $gte: start, $lte: end }, isActive: true });
         
-        // El frontend necesita el nombre del profe
         const classesPopulated = await Promise.all(classes.map(async (c) => {
             await c.populate('professorId', 'name');
             return c;
@@ -129,11 +165,11 @@ export const getClassesByDate = async (req, res) => {
     }
 };
 
-// NUEVO: P-HDU-02: Reporte de productividad del profesor
+// 7. Reporte de productividad
 export const getProfessorReport = async (req, res) => {
     try {
         const { professorId } = req.params;
-        const { startDate, endDate } = req.query; // Ej: ?startDate=2023-10-01&endDate=2023-10-31
+        const { startDate, endDate } = req.query;
 
         if (!startDate || !endDate) {
             return res.status(400).json({ status: "error", error: "Debe proporcionar startDate y endDate en la query" });
@@ -143,14 +179,11 @@ export const getProfessorReport = async (req, res) => {
         const end = new Date(endDate);
         end.setHours(23, 59, 59, 999);
 
-        // Seguridad: Un profesor solo puede ver su propio reporte (o un Admin puede ver cualquiera)
         if (req.user._id !== professorId && req.user.rol !== 'admin') {
             return res.status(403).json({ status: "error", error: "No tienes permiso para ver el reporte de otro profesor" });
         }
 
         const report = await classService.getProfessorProductivity(professorId, start, end);
-        
-        // Sumar totales para facilitar el trabajo al frontend
         const totalOverallHours = report.reduce((acc, curr) => acc + curr.totalHoursWorked, 0);
 
         const rawClasses = await classService.getClassesByDateRange(start, end);
@@ -161,7 +194,7 @@ export const getProfessorReport = async (req, res) => {
             payload: {
                 summary: report,
                 totalOverallHours,
-                classesList: professorClasses // El frontend iterará sobre este array
+                classesList: professorClasses 
             }
         });
     } catch (error) {

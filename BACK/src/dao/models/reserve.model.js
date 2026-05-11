@@ -3,45 +3,29 @@ import mongoose from "mongoose";
 const collection = 'Reserve';
 
 const schema = new mongoose.Schema({
-    studentId:{
+    studentId: {
         type: mongoose.SchemaTypes.ObjectId,
         ref: 'User',
         required: true
     },
-    classId:{
+    scheduleId: {
         type: mongoose.SchemaTypes.ObjectId,
-        ref: 'Class',
+        ref: 'Class', // <-- CAMBIAMOS 'Schedule' por 'Class' para que coincida con tu modelo
         required: true
     },
-    status:{
-        type: String,
-        enum: ['confirmed','canceled','pending'],
-        default: 'confirmed'
+    date: {
+        type: Date,
+        required: true
     },
-    assistance:{
+    status: {
         type: String,
-        enum: ['assisted','absent','pending'],
-        default: 'pending'
-    },
-    waitingPosition:{
-        type: Number,
-        default: 0
+        enum: ['reserved', 'attended', 'cancelled', 'absent'],
+        default: 'reserved'
     }
 }, { timestamps: true });
 
-// ÍNDICE PARCIAL: Solo bloquea duplicados cuando la reserva NO está cancelada.
-// Esto permite que un alumno vuelva a reservar una clase que canceló previamente,
-// ya que el documento cancelado queda en la DB y el índice unique total lo bloqueaba.
-schema.index(
-    { studentId: 1, classId: 1 },
-    { 
-        unique: true,
-        partialFilterExpression: { status: { $in: ['confirmed', 'pending'] } }
-    }
-);
-schema.index({ classId: 1, status: 1 });
-schema.index({ classId: 1, waitingPosition: 1 });
+schema.index({ studentId: 1, scheduleId: 1, date: 1 }, { unique: true });
 
-const reserveModel = mongoose.model(collection, schema);
+const reserveModel = mongoose.models[collection] || mongoose.model(collection, schema);
 
 export default reserveModel;
