@@ -10,7 +10,7 @@ const Sidebar = () => {
 
   const handleLogout = () => {
     logout();
-    navigate('/login');
+    navigate('/auth');
   };
 
   const userRole = (user?.role || user?.rol)?.toLowerCase();

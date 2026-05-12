@@ -5,7 +5,8 @@ import MainLayout from "./layouts/MainLayout";
 import StudentDashboard from "./pages/StudentDashboard";
 import ProfessorDashboard from "./pages/ProfessorDashboard";
 import AdminDashboard from "./pages/AdminDashboard"; 
-import Login from "./pages/Login";
+import Auth from "./pages/Auth";
+import ResetPass from "./pages/ResetPass";
 import Reservations from "./pages/Reservations";
 
 // 🛡️ PROTECTOR A PRUEBA DE BALAS (y de Spanglish)
@@ -18,7 +19,7 @@ const RoleProtectedRoute = ({ children, allowedRoles }) => {
     </div>
   );
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user) return <Navigate to="/auth" replace />;
 
   // 🔥 LA SOLUCIÓN: Buscamos "role" o "rol" dependiendo de cómo venga de la BD
   const userRole = (user.role || user.rol)?.toLowerCase() || '';
@@ -46,7 +47,9 @@ const RoleRedirect = () => {
 function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<Login />} />
+      <Route path="/auth" element={<Auth />} />
+      <Route path="/forgot-pass" element={<Navigate to="/reset-pass" replace />} />
+      <Route path="/reset-pass" element={<ResetPass />} />
       
       <Route path="/" element={<MainLayout />}>
         <Route index element={<RoleRedirect />} />

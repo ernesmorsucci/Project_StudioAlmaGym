@@ -26,7 +26,7 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (email, password) => {
     const { data } = await api.post('/auth/login', { email, password });
-    setUser(data.payload); 
+    setUser(data.payload);
     return data; // <-- ¡Esta línea es clave para que el Login sepa el rol!
   };
 
@@ -35,8 +35,24 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
   };
 
+  const register = async (email, password, name, phone, rol) => {
+    const { data } = await api.post('/auth/register', { email, password, name, phone, rol });
+    setUser(data.payload);
+    return data;
+  }
+
+  const forgotPassword = async (email) => {
+    const { data } = await api.post('/auth/forgot-password', { email });
+    return data;
+  }
+
+  const resetPassword = async (email, code, newPassword) => {
+    const { data } = await api.post('/auth/reset-password', { email, code, newPassword });
+    return data;
+  }
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, loading }}>
+    <AuthContext.Provider value={{ user, login, logout, register, forgotPassword, resetPassword, loading }}>
       {!loading && children}
     </AuthContext.Provider>
   );
