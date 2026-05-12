@@ -35,7 +35,7 @@ export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        const user = await userService.getBy({ email: email });
+        const user = await userService.findByEmail(email);
         if (!user || !await isValidPassword(user, password)) {
             return res.status(401).json({ error: "Credenciales inválidas" });
         }

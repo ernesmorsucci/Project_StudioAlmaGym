@@ -32,6 +32,10 @@ export default class UsersService {
         return await usersDAO.delete(id);
     }
 
+    async findByEmail(email) {
+        return await usersDAO.getBy({ email: email });
+    }
+
     // =========================================================
     // LÓGICA PARA EL DASHBOARD DE ALUMNOS (ADMIN)
     // =========================================================
