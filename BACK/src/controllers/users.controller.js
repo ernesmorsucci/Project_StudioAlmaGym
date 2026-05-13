@@ -1,9 +1,7 @@
 import { userService, membershipService, planService } from '../services/index.service.js';
 import { createHash } from '../utils/hash.js'; // <-- ¡NUEVO! Importamos la función para encriptar
 
-// ==========================================
-// NUEVO: CREAR ALUMNO + MEMBRESÍA EN UN CLIC
-// ==========================================
+//crear alumno con membresia (usado en el dashboard de admin)
 export const createStudentWithMembership = async (req, res) => {
     try {
         const { name, email, password, planId, startDate } = req.body;
@@ -12,18 +10,15 @@ export const createStudentWithMembership = async (req, res) => {
             return res.status(400).json({ status: 'error', error: 'Faltan datos obligatorios del usuario.' });
         }
 
-        // 🔐 MAGIA AQUÍ: Encriptamos la contraseña provisoria antes de guardarla
         const hashedPassword = await createHash(password);
 
-        // 1. Crear el usuario (alumno)
         const newUser = await userService.create({
             name,
             email,
-            password: hashedPassword, // <-- Guardamos la versión segura
+            password: hashedPassword,
             rol: 'alumno'
         });
 
-        // 2. Intentar crear membresía
         if (planId && startDate) {
             try {
                 const plan = await planService.getBy({ _id: planId });
@@ -99,7 +94,12 @@ export const getUser = async (req, res) => {
 
 export const addUser = async (req, res) => {
     try {
-        const result = await userService.create(req.body);
+        const userData = { ...req.body };
+        if (userData.password) {
+            userData.password = await createHash(userData.password);
+        }
+
+        const result = await userService.create(userData);
         res.status(201).json({ status: 'success', payload: result });
     } catch (error) {
         res.status(400).json({ status: 'error', error: error.message });
@@ -108,7 +108,14 @@ export const addUser = async (req, res) => {
 
 export const updateUser = async (req, res) => {
     try {
-        const result = await userService.update(req.params.uid, req.body);
+        const updateData = { ...req.body };
+        if (updateData.password) {
+            updateData.password = await createHash(updateData.password);
+        } else {
+            delete updateData.password;
+        }
+
+        const result = await userService.update(req.params.uid, updateData);
         res.json({ status: 'success', payload: result });
     } catch (error) {
         res.status(400).json({ status: 'error', error: error.message });
