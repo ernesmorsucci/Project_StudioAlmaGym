@@ -4,6 +4,7 @@ import CreateScheduleForm from '../components/CreateScheduleForm';
 import CreateStudentForm from '../components/CreateStudentForm';
 import StudentDetailModal from '../components/StudentDetailModal'; // <-- NUEVO IMPORT
 import api from '../services/api';
+import PaymentManager from '../components/PaymentManager'; // <-- NUEVO IMPORT
 
 const AdminDashboard = () => {
   const [searchParams] = useSearchParams();
