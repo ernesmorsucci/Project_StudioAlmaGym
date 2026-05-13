@@ -6,7 +6,8 @@ import {
     confirmPayment, 
     getStudentPayments, 
     getPaymentsByDateRange, 
-    getDefaulters 
+    getDefaulters,
+    getPaymentStats // <-- 1. Importa la nueva función aquí
 } from "../controllers/payment.controller.js";
 import { isAuthenticated, checkRole } from "../middlewares/auth.middleware.js";
 
@@ -20,6 +21,9 @@ const paymentRouter = Router();
 // RUTAS DE REPORTES Y FILTROS (Alta Prioridad)
 // ==========================================
 
+// NUEVA RUTA DE ESTADÍSTICAS (Debe ir antes de /:pid)
+paymentRouter.get("/stats", isAuthenticated, checkRole(['admin']), getPaymentStats);
+
 // 1. Arqueo de caja: Ver ingresos por rango de fechas (Solo Admin)
 paymentRouter.get("/range", isAuthenticated, checkRole(['admin']), getPaymentsByDateRange);
 
@@ -27,9 +31,7 @@ paymentRouter.get("/range", isAuthenticated, checkRole(['admin']), getPaymentsBy
 paymentRouter.get("/defaulters", isAuthenticated, checkRole(['admin']), getDefaulters);
 
 // 3. Historial de pagos de un alumno específico
-// TODO: Validar que el alumno solo vea sus propios pagos (o sea Admin)
 paymentRouter.get("/student/:uid", isAuthenticated, getStudentPayments);
-
 
 // ==========================================
 // RUTAS ESTÁNDAR (CRUD)
@@ -45,7 +47,6 @@ paymentRouter.get("/:pid", isAuthenticated, getPaymentById);
 paymentRouter.post("/", isAuthenticated, checkRole(['admin']), createPayment);
 
 // 7. Marcar un pago como CONFIRMADO (Solo Admin)
-// Nota: Esta es la acción que dispara el flujo de dinero
 paymentRouter.put("/:pid/confirm", isAuthenticated, checkRole(['admin']), confirmPayment);
 
 export default paymentRouter;

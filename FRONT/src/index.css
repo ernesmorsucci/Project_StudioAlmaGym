@@ -6,3 +6,54 @@ body {
   background-color: #FAF8F5; /* El color crema de fondo */
   color: #333333;
 }
+/* ========================================== */
+/* ESTILOS EXCLUSIVOS PARA IMPRESIÓN DE RECIBOS*/
+/* ========================================== */
+/* ========================================== */
+/* ESTILOS EXCLUSIVOS PARA IMPRESIÓN DE RECIBOS*/
+/* ========================================== */
+@media print {
+  /* 1. Forzamos A5 pero le quitamos los márgenes externos a la hoja */
+  @page {
+    size: A5 portrait;
+    margin: 0mm !important; 
+  }
+  
+  /* 2. Eliminamos cualquier desbordamiento (scroll) que genere hojas extra */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: 100vh !important;
+    overflow: hidden !important;
+    background-color: white !important;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+  
+  #printable-receipt, #printable-receipt * {
+    visibility: visible;
+  }
+  
+  /* 3. El recibo toma el control absoluto de la ÚNICA hoja */
+  #printable-receipt {
+    position: fixed !important;
+    left: 0 !important;
+    top: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important; 
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 15mm !important; /* Le damos aire por dentro, no por fuera */
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important; /* Quitamos bordes redondeados para el papel */
+    z-index: 9999 !important;
+  }
+
+  /* 4. Ocultamos botones interactivos */
+  .no-print {
+    display: none !important;
+  }
+}

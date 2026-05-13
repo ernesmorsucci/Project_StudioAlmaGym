@@ -97,3 +97,47 @@ export const getDefaulters = async (req, res) => {
         res.status(500).json({ status: "error", error: error.message });
     }
 };
+// Agrega esto al final de tu payment.controller.js
+export const getPaymentStats = async (req, res) => {
+    try {
+        // 1. Obtenemos todos los pagos usando el servicio que ya tienes
+        const payments = await repoPaymentService.getAll();
+        
+        const now = new Date();
+        const currentMonth = now.getMonth();
+        const currentYear = now.getFullYear();
+
+        let totalRecaudado = 0;
+        let recaudadoMes = 0;
+
+        // 2. Procesamos y sumamos los montos
+        payments.forEach(payment => {
+            // Verificamos que el pago sea válido (nuestro flujo los crea como 'paid')
+            if (payment.status === 'paid' || !payment.status) {
+                const amount = Number(payment.amount) || 0;
+                totalRecaudado += amount;
+                
+                // Verificamos si el pago es de este mes
+                const paymentDate = new Date(payment.date || payment.createdAt);
+                if (paymentDate.getMonth() === currentMonth && paymentDate.getFullYear() === currentYear) {
+                    recaudadoMes += amount;
+                }
+            }
+        });
+
+        // Nota del Profesor: El cálculo de "Pendientes" requiere cruzar a los alumnos "Vencidos" con el precio de sus planes.
+        // Dado que el Frontend ya carga toda la lista de alumnos, es mucho más eficiente que el front calcule el "Pendiente" 
+        // sumando las cuotas de los alumnos en rojo, por lo que aquí devolvemos lo que es estrictamente pagos.
+
+        res.status(200).json({
+            status: "success",
+            payload: {
+                totalRecaudado,
+                recaudadoMes
+            }
+        });
+    } catch (error) {
+        console.error("❌ Error en getPaymentStats:", error);
+        res.status(500).json({ status: "error", error: error.message });
+    }
+}

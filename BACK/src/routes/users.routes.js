@@ -25,7 +25,7 @@ usersRouter.get("/directory/students", isAuthenticated, checkRole(['profesor', '
 usersRouter.get("/professors", isAuthenticated, checkRole(['admin']), getProfessors); 
 usersRouter.get("/students-dashboard", isAuthenticated, checkRole(['admin']), getStudentsDashboard);
 
-// 👇 NUESTRA NUEVA RUTA PARA CREAR ALUMNO + MEMBRESÍA 👇
+//ruta para crear alumno + membresia (usada en el dashboard de admin)
 usersRouter.post("/student-with-membership", isAuthenticated, checkRole(['admin']), createStudentWithMembership);
 
 usersRouter.get("/", isAuthenticated, checkRole(['admin']), getAllUsers);

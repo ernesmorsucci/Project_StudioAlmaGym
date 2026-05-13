@@ -12,37 +12,29 @@ export default class NotificationService {
     delete = (id) => notificationRepo.delete(id);
     getForUser = (userId) => notificationRepo.getForUser(userId);
 
-    /**
-     * Crea la notificación en BD (Panel Web) y la envía por Email
-     */
     async create(doc) {
-        // 1. Guardar en Base de Datos (Para el frontend de React)
         const newNotification = await notificationRepo.create(doc);
 
-        // 2. Enviar correos a los destinatarios afectados
-        if (doc.receivers === 'specific' && doc.studentIds && doc.studentIds.length > 0) {
-            // Ejecutar en segundo plano para no bloquear la respuesta
-            this._sendEmailsToReceivers(doc.studentIds, doc.message);
+        if (doc.studentIds && doc.studentIds.length > 0) {
+            // Ejecutar en segundo plano
+            this._sendEmailsToReceivers(doc.studentIds, doc.subject, doc.message);
         }
 
         return newNotification;
     }
 
-    /**
-     * Método privado: Busca los emails de los alumnos y dispara el envío
-     */
-    async _sendEmailsToReceivers(studentIds, message) {
+    async _sendEmailsToReceivers(studentIds, subject, message) {
         let successCount = 0;
 
         for (const studentId of studentIds) {
             const student = await userService.getBy({ _id: studentId });
             
             if (student && student.email) {
-                const sent = await emailService.sendNotificationEmail(student.email, message);
+                // Modifica tu emailService para que acepte el 'subject'
+                const sent = await emailService.sendNotificationEmail(student.email, subject, message);
                 if (sent) successCount++;
             }
         }
-
-        console.log(`[Notification Service] Envío masivo completado: ${successCount}/${studentIds.length} correos entregados.`);
+        console.log(`Correos enviados: ${successCount}`);
     }
 }

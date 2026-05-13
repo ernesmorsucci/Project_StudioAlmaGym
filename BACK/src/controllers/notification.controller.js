@@ -1,12 +1,10 @@
 import { notificationService } from "../services/index.service.js";
 
-// 1. Obtener todas las notificaciones (Para el panel del Admin)
 export const getAllNotifications = async (req, res) => {
     try {
         const notifications = await notificationService.getAll();
         res.status(200).json({ status: "success", payload: notifications });
     } catch (error) {
-        console.error("Error en getAllNotifications:", error);
         res.status(500).json({ status: "error", error: "Error al obtener notificaciones" });
     }
 };
@@ -24,27 +22,27 @@ export const getUserNotifications = async (req, res) => {
         const notifications = await notificationService.getForUser(uid);
         res.status(200).json({ status: "success", payload: notifications });
     } catch (error) {
-        console.error("Error en getUserNotifications:", error);
         res.status(500).json({ status: "error", error: "Error al obtener tus notificaciones" });
     }
 };
 
-// 3. Crear una nueva notificación (El Admin avisa algo)
+// 🔥 NUEVO CONTROLADOR DE CREACIÓN
 export const createNotification = async (req, res) => {
     try {
-        const { adminId, message, receivers, studentIds, relatedClass } = req.body;
+        const adminId = req.user._id; 
+        const { subject, message, targetType, resolvedIds } = req.body;
 
-        if (!adminId || !message || !receivers) {
+        if (!adminId || !subject || !message || !targetType) {
             return res.status(400).json({ status: "error", error: "Faltan datos obligatorios" });
         }
 
         const newNotification = {
             adminId,
+            subject,
             message,
-            receivers, // 'all' o 'specific'
-            studentIds: receivers === 'specific' ? studentIds : [],
-            relatedClass: relatedClass || null,
-            sent: receivers === 'specific' ? studentIds.length : 0
+            targetType,
+            studentIds: resolvedIds || [],
+            sent: resolvedIds ? resolvedIds.length : 0
         };
 
         const result = await notificationService.create(newNotification);
@@ -55,17 +53,13 @@ export const createNotification = async (req, res) => {
     }
 };
 
-// 4. Borrar una notificación (Limpieza del Admin)
 export const deleteNotification = async (req, res) => {
     try {
         const { nid } = req.params;
         const result = await notificationService.delete(nid);
-        
         if (!result) return res.status(404).json({ status: "error", error: "Notificación no encontrada" });
-
-        res.status(200).json({ status: "success", message: "Notificación eliminada permanentemente" });
+        res.status(200).json({ status: "success", message: "Notificación eliminada" });
     } catch (error) {
-        console.error("Error en deleteNotification:", error);
-        res.status(500).json({ status: "error", error: "Error al eliminar la notificación" });
+        res.status(500).json({ status: "error", error: "Error al eliminar" });
     }
 };

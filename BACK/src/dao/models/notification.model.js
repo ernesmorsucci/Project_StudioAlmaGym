@@ -3,34 +3,32 @@ import mongoose from "mongoose";
 const collection = 'Notification';
 
 const schema = new mongoose.Schema({
-    adminId:{
+    adminId: {
         type: mongoose.SchemaTypes.ObjectId,
         ref: 'User',
         required: true
     },
-    message:{
+    subject: { // <-- NUEVO CAMPO
         type: String,
         required: true
     },
-    receivers:{
+    message: {
         type: String,
-        enum: ['all', 'specific'],
         required: true
     },
-    studentIds:[{
+    targetType: { // <-- REEMPLAZA AL VIEJO "receivers"
+        type: String,
+        required: true
+    },
+    studentIds: [{ // Aquí guardamos a los destinatarios finales
         type: mongoose.SchemaTypes.ObjectId,
         ref: 'User'
     }],
-    relatedClass:{
-        type: mongoose.SchemaTypes.ObjectId,
-        ref: 'Class',
-        required: false
-    },
-    sent:{
+    sent: {
         type: Number,
         default: 0
     },
-    date:{
+    date: {
         type: Date,
         default: Date.now
     }

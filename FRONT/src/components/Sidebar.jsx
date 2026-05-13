@@ -29,6 +29,7 @@ const Sidebar = () => {
     { path: '/admin?tab=pagos', label: 'Pagos', icon: <CreditCard className="w-5 h-5" /> },
     { path: '/admin?tab=notificaciones', label: 'Notificaciones', icon: <Bell className="w-5 h-5" /> },
     { path: '/admin?tab=profesoras', label: 'Profesoras', icon: <UserCircle className="w-5 h-5" /> },
+    { path: '/admin?tab=planes', label: 'Planes', icon: <CreditCard className="w-5 h-5" /> },
   ];
 
   const links = userRole === 'admin' ? adminLinks : studentLinks;

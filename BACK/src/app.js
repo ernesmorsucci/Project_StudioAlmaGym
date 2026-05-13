@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import mongoose from 'mongoose'; // 👈 LIBRERÍA RESTAURADA
 import { createServer } from 'http'; 
 import { Server } from 'socket.io';  
+import { startCronJobs } from './utils/cron.js';
 
 // 1. IMPORTAMOS TUS ROUTERS
 import authRouter from './routes/auth.routes.js';
@@ -48,6 +49,7 @@ app.use(cors({
     credentials: true
 }));
 
+
 // 6. ROUTERS
 app.use('/api/auth', authRouter);
 app.use('/api/classes', classRouter);
@@ -60,6 +62,8 @@ app.use('/api/schedules', recurrentScheduleRouter);
 app.use('/api/reserves', reserveRouter);
 app.use('/api/users', usersRouter);
 
+
+startCronJobs();
 // 7. INICIALIZACIÓN DEL SERVIDOR
 const PORT = process.env.PORT || 8080;
 httpServer.listen(PORT, () => {
