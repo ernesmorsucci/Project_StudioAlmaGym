@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Send, Bell, Users, AlertCircle, Calendar, User, MessageSquare, CheckCircle } from 'lucide-react';
-import api from '../services/api';
+import api from '../../services/api';
+import { showError, showWarning } from '../../utils/alerts';
 
 const NotificationManager = () => {
     // ESTADOS DE DATOS
@@ -79,19 +80,19 @@ const NotificationManager = () => {
                         .map(r => typeof r.studentId === 'object' ? r.studentId._id : r.studentId);
 
                     if (resolvedIds.length === 0) {
-                        alert("No hay ningún alumno activo inscrito en esta clase.");
+                        showWarning("No hay ningún alumno activo inscrito en esta clase.");
                         setIsSubmitting(false);
                         return;
                     }
                 } catch (error) {
-                    alert("Error al conectar con el módulo de reservas.");
+                    showError("Error al conectar con el módulo de reservas.");
                     setIsSubmitting(false);
                     return;
                 }
             }
 
             if (resolvedIds.length === 0) {
-                alert("La audiencia seleccionada no tiene ningún usuario actualmente. No se enviará el mensaje.");
+                showWarning("La audiencia seleccionada no tiene ningún usuario actualmente. No se enviará el mensaje.");
                 setIsSubmitting(false);
                 return;
             }
@@ -110,7 +111,7 @@ const NotificationManager = () => {
             setTimeout(() => setSuccessMessage(''), 4000);
         } catch (error) {
             console.error(error);
-            alert(error.response?.data?.error || "Error al enviar la notificación.");
+            showError(error.response?.data?.error || "Error al enviar la notificación.");
         } finally {
             setIsSubmitting(false);
         }

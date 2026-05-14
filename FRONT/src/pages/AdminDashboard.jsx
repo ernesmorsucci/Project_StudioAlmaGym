@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import CreateScheduleForm from '../components/CreateScheduleForm';
-import CreateStudentForm from '../components/CreateStudentForm';
-import CreatePlanForm from '../components/CreatePlanForm';
-import CreateProfessorForm from '../components/CreateProfessorForm';
-import StudentDetailModal from '../components/StudentDetailModal';
+import CreateScheduleForm from '../components/admin/CreateScheduleForm';
+import CreateStudentForm from '../components/admin/CreateStudentForm';
+import CreatePlanForm from '../components/admin/CreatePlanForm';
+import CreateProfessorForm from '../components/admin/CreateProfessorForm';
+import StudentDetailModal from '../components/admin/StudentDetailModal';
 import api from '../services/api';
-import PaymentManager from '../components/PaymentManager'; // <-- MÓDULO DE PAGOS LISTO
-import NotificationManager from '../components/NotificationManager';
-import DashboardHome from '../components/DashboardHome';
+import PaymentManager from '../components/admin/PaymentManager'; // <-- MÓDULO DE PAGOS LISTO
+import NotificationManager from '../components/admin/NotificationManager';
+import DashboardHome from '../components/admin/DashboardHome';
+import { showConfirm, showError } from '../utils/alerts';
 
 
 const AdminDashboard = () => {
@@ -132,11 +133,19 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteClick = async (id) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar este horario?')) {
+    const confirmed = await showConfirm({
+      title: 'Eliminar horario',
+      text: '¿Estás seguro de que deseas eliminar este horario?',
+      confirmButtonText: 'Eliminar',
+      icon: 'warning',
+      confirmButtonColor: '#E07A5F',
+    });
+
+    if (confirmed) {
       try {
         await api.delete(`/schedules/${id}`);
         fetchSchedules();
-      } catch (error) { alert("Hubo un error al eliminar el horario."); }
+      } catch (error) { showError("Hubo un error al eliminar el horario."); }
     }
   };
 
@@ -175,12 +184,20 @@ const AdminDashboard = () => {
   };
 
   const handleDeletePlanClick = async (id) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar este plan?')) {
+    const confirmed = await showConfirm({
+      title: 'Eliminar plan',
+      text: '¿Estás seguro de que deseas eliminar este plan?',
+      confirmButtonText: 'Eliminar',
+      icon: 'warning',
+      confirmButtonColor: '#E07A5F',
+    });
+
+    if (confirmed) {
       try {
         await api.delete(`/plans/${id}`);
         fetchPlans();
       } catch (error) {
-        alert(error.response?.data?.error || 'Hubo un error al eliminar el plan.');
+        showError(error.response?.data?.error || 'Hubo un error al eliminar el plan.');
       }
     }
   };
@@ -232,12 +249,20 @@ const AdminDashboard = () => {
   };
 
   const handleDeleteProfessorClick = async (id) => {
-    if (window.confirm('¿Estás seguro de que deseas eliminar esta profesora?')) {
+    const confirmed = await showConfirm({
+      title: 'Eliminar profesora',
+      text: '¿Estás seguro de que deseas eliminar esta profesora?',
+      confirmButtonText: 'Eliminar',
+      icon: 'warning',
+      confirmButtonColor: '#E07A5F',
+    });
+
+    if (confirmed) {
       try {
         await api.delete(`/users/${id}`);
         fetchProfessorsDashboard();
       } catch (error) {
-        alert(error.response?.data?.error || 'Hubo un error al eliminar la profesora.');
+        showError(error.response?.data?.error || 'Hubo un error al eliminar la profesora.');
       }
     }
   };

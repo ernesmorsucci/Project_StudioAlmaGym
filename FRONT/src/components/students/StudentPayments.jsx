@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader, CheckCircle, Landmark, Smartphone, X, Copy } from 'lucide-react';
-import api from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+import api from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 const StudentPayments = () => {
     const { user } = useAuth();

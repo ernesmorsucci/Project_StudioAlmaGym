@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
-import api from '../services/api';
+import { useAuth } from '../../contexts/AuthContext';
+import api from '../../services/api';
 import { CheckCircle, AlertCircle, KeyRound, Mail, Loader } from 'lucide-react';
 
 const StudentProfile = () => {

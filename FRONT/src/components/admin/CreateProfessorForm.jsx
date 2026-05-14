@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle, Mail, Sparkles, User, X } from 'lucide-react';
-import api from '../services/api';
+import api from '../../services/api';
 
 const CreateProfessorForm = ({ onSuccess, onCancel, initialData = null }) => {
     const [loading, setLoading] = useState(false);

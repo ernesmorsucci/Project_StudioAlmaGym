@@ -1,150 +1,229 @@
-import React, { useState, useEffect } from 'react';
-import { Users, Clock, Calendar as CalendarIcon, Loader, CheckSquare } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { Loader } from 'lucide-react';
 import api from '../services/api';
+import { useAuth } from '../contexts/AuthContext';
+import { showError, showSuccess } from '../utils/alerts';
+import ProfessorClassesTab from '../components/professor/ProfessorClassesTab';
+import ProfessorHomeTab from '../components/professor/ProfessorHomeTab';
+import ProfessorHoursTab from '../components/professor/ProfessorHoursTab';
+import ProfessorMobileTabs from '../components/professor/ProfessorMobileTabs';
+import ProfessorStudentsTab from '../components/professor/ProfessorStudentsTab';
+import {
+  getClassHours,
+  getReserveStudent,
+  getStatusLabel,
+  getStudentId,
+  getUserId,
+  markReserveStatus,
+  normalizeProfessorTab,
+  sameDay,
+  startOfWeek,
+} from '../components/professor/professorDashboardUtils';
 
 const ProfessorDashboard = () => {
   const { user } = useAuth();
-  const [data, setData] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const activeTab = normalizeProfessorTab(searchParams.get('tab'));
 
-  const primerNombre = user?.name?.split(' ')[0] || 'Profe';
+  const [classes, setClasses] = useState([]);
+  const [reservesByClass, setReservesByClass] = useState({});
+  const [studentsDirectory, setStudentsDirectory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [updatingReserve, setUpdatingReserve] = useState(null);
+  const [studentSearch, setStudentSearch] = useState('');
+
+  const professorId = user?._id || user?.id;
+  const professorName = user?.name || 'Profesora';
+  const firstName = professorName.split(' ')[0] || 'Profesora';
+
+  const loadData = async () => {
+    if (!professorId) {
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const [classesRes, studentsRes] = await Promise.all([
+        api.get('/classes'),
+        api.get('/users/students-dashboard').catch(() => ({ data: { payload: [] } })),
+      ]);
+
+      const allClasses = classesRes.data.payload || [];
+      const professorClasses = allClasses
+        .filter((classItem) => getUserId(classItem.professorId)?.toString() === professorId.toString())
+        .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
+
+      const reserveEntries = await Promise.all(
+        professorClasses.map(async (classItem) => {
+          try {
+            const res = await api.get(`/reserves/class/${classItem._id}`);
+            return [classItem._id, res.data.payload || []];
+          } catch (error) {
+            return [classItem._id, []];
+          }
+        })
+      );
+
+      setClasses(professorClasses);
+      setStudentsDirectory(studentsRes.data.payload || []);
+      setReservesByClass(Object.fromEntries(reserveEntries));
+    } catch (error) {
+      console.error('Error al cargar el panel de profesoras:', error);
+      showError('No pudimos cargar tus clases. Intentá nuevamente en unos minutos.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        const response = await api.get('/dashboard/professor');
-        setData(response.data.payload);
-      } catch (error) {
-        // RED DE SEGURIDAD: Datos simulados hasta que armemos el Backend
-        console.log("Usando datos de respaldo para el Profesor...");
-        setData({
-          todayClasses: [
-            { 
-              id: 1, 
-              time: '08:00', 
-              name: 'Pilates Mat', 
-              enrolled: 4, 
-              capacity: 5,
-              students: ['María García', 'Lucía Pérez', 'Ana Gómez', 'Clara Ruiz'] 
-            },
-            { 
-              id: 2, 
-              time: '18:00', 
-              name: 'Reformer', 
-              enrolled: 5, 
-              capacity: 5,
-              students: ['Julia Paz', 'Marta Soler', 'Elena Roca', 'Sofía Díaz', 'Laura Gil'] 
-            }
-          ],
-          weeklyStats: { totalClasses: 8, totalStudents: 32 }
-        });
-      } finally {
-        setLoading(false);
-      }
+    loadData();
+  }, [professorId]);
+
+  const now = useMemo(() => new Date(), []);
+  const weekStart = useMemo(() => startOfWeek(now), [now]);
+  const weekEnd = useMemo(() => {
+    const end = new Date(weekStart);
+    end.setDate(weekStart.getDate() + 7);
+    return end;
+  }, [weekStart]);
+
+  const completedClasses = useMemo(
+    () => classes.filter((classItem) => new Date(classItem.dateTime) <= now),
+    [classes, now]
+  );
+
+  const todayClasses = useMemo(
+    () => classes.filter((classItem) => sameDay(new Date(classItem.dateTime), now)),
+    [classes, now]
+  );
+
+  const monthClasses = useMemo(
+    () =>
+      completedClasses.filter((classItem) => {
+        const date = new Date(classItem.dateTime);
+        return date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+      }),
+    [completedClasses, now]
+  );
+
+  const weekClasses = useMemo(
+    () =>
+      completedClasses.filter((classItem) => {
+        const date = new Date(classItem.dateTime);
+        return date >= weekStart && date < weekEnd;
+      }),
+    [completedClasses, weekEnd, weekStart]
+  );
+
+  const studentsById = useMemo(() => {
+    const map = new Map();
+    studentsDirectory.forEach((student) => map.set(getStudentId(student), student));
+    return map;
+  }, [studentsDirectory]);
+
+  const getClassReserves = (classId) =>
+    (reservesByClass[classId] || []).filter((reserve) => reserve.status !== 'cancelled');
+
+  const getHydratedStudent = (reserve) => {
+    const reserveStudent = getReserveStudent(reserve);
+    return {
+      ...reserveStudent,
+      ...(studentsById.get(getStudentId(reserveStudent)) || {}),
     };
-    fetchDashboard();
-  }, []);
+  };
+
+  const todayReserveCount = todayClasses.reduce((acc, classItem) => acc + getClassReserves(classItem._id).length, 0);
+  const todayDebtCount = todayClasses.reduce((acc, classItem) => {
+    return acc + getClassReserves(classItem._id).filter((reserve) => getStatusLabel(getHydratedStudent(reserve)) === 'Debe cuota').length;
+  }, 0);
+  const monthHours = monthClasses.reduce((acc, classItem) => acc + getClassHours(classItem), 0);
+  const weekHours = weekClasses.reduce((acc, classItem) => acc + getClassHours(classItem), 0);
+
+  const professorStudents = useMemo(() => {
+    const map = new Map();
+    Object.values(reservesByClass).flat().forEach((reserve) => {
+      const student = getHydratedStudent(reserve);
+      const studentId = getStudentId(student);
+      if (studentId) map.set(studentId, student);
+    });
+    return Array.from(map.values()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  }, [reservesByClass, studentsById]);
+
+  const filteredStudents = professorStudents.filter((student) => {
+    const query = studentSearch.trim().toLowerCase();
+    if (!query) return true;
+    return `${student.name || ''} ${student.email || ''}`.toLowerCase().includes(query);
+  });
+
+  const handleMarkAttendance = async (reserveId, status) => {
+    setUpdatingReserve(`${reserveId}-${status}`);
+    try {
+      await markReserveStatus(reserveId, status);
+      await loadData();
+      showSuccess(status === 'attended' ? 'Asistencia registrada.' : 'Ausencia registrada.');
+    } catch (error) {
+      console.error('Error al registrar asistencia:', error);
+      showError(error.response?.data?.error || 'No se pudo registrar la asistencia.');
+    } finally {
+      setUpdatingReserve(null);
+    }
+  };
+
+  const goToTab = (tab) => setSearchParams(tab === 'inicio' ? {} : { tab });
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-64">
-        <Loader className="animate-spin text-alma-olive w-8 h-8" />
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <Loader className="h-10 w-10 animate-spin text-alma-olive" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-5xl">
-      {/* Cabecera */}
-      <div className="mb-8">
-        <h2 className="text-3xl font-serif text-alma-text flex items-center gap-2">
-          Hola, {primerNombre} 👋
-        </h2>
-        <p className="text-sm text-alma-textLight mt-1">
-          {new Date().toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })} • Tus clases de hoy
-        </p>
-      </div>
+    <div className="max-w-5xl px-4 py-8 md:px-8">
+      {activeTab === 'inicio' && (
+        <ProfessorHomeTab
+          firstName={firstName}
+          now={now}
+          todayClasses={todayClasses}
+          todayReserveCount={todayReserveCount}
+          todayDebtCount={todayDebtCount}
+          getClassReserves={getClassReserves}
+          onGoToTab={goToTab}
+        />
+      )}
 
-      {/* Resumen Semanal */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-        <div className="bg-white p-6 rounded-2xl border border-alma-border shadow-sm flex items-center gap-4 border-l-4 border-l-alma-olive">
-          <div className="w-12 h-12 rounded-full bg-green-50 text-green-600 flex items-center justify-center">
-            <CheckSquare className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-alma-textLight tracking-wider uppercase">Clases esta semana</h3>
-            <p className="text-2xl font-serif text-alma-text">{data?.weeklyStats?.totalClasses} clases</p>
-          </div>
-        </div>
+      {activeTab === 'clases' && (
+        <ProfessorClassesTab
+          todayClasses={todayClasses}
+          getClassReserves={getClassReserves}
+          getHydratedStudent={getHydratedStudent}
+          updatingReserve={updatingReserve}
+          onMarkAttendance={handleMarkAttendance}
+        />
+      )}
 
-        <div className="bg-white p-6 rounded-2xl border border-alma-border shadow-sm flex items-center gap-4 border-l-4 border-l-alma-warning">
-          <div className="w-12 h-12 rounded-full bg-yellow-50 text-yellow-600 flex items-center justify-center">
-            <Users className="w-6 h-6" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-alma-textLight tracking-wider uppercase">Alumnos totales</h3>
-            <p className="text-2xl font-serif text-alma-text">{data?.weeklyStats?.totalStudents} estudiantes</p>
-          </div>
-        </div>
-      </div>
+      {activeTab === 'horas' && (
+        <ProfessorHoursTab
+          now={now}
+          monthClasses={monthClasses}
+          monthHours={monthHours}
+          weekClasses={weekClasses}
+          weekHours={weekHours}
+        />
+      )}
 
-      {/* Lista de Clases de Hoy */}
-      <div className="mb-8">
-        <div className="flex items-center gap-2 mb-4">
-          <CalendarIcon className="w-5 h-5 text-alma-textLight" />
-          <h3 className="text-lg font-medium text-alma-text">Tu agenda de hoy</h3>
-        </div>
-        
-        {data?.todayClasses?.length === 0 ? (
-          <div className="bg-white p-8 rounded-2xl border border-alma-border shadow-sm text-center">
-            <p className="text-alma-textLight">No tienes clases programadas para hoy. ¡Disfruta tu día!</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {data?.todayClasses?.map((cls) => (
-              <div key={cls.id} className="bg-white p-6 rounded-2xl border border-alma-border shadow-sm hover:shadow-md transition-shadow">
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-gray-100 pb-4 mb-4">
-                  <div className="flex items-center gap-6">
-                    <p className="text-3xl font-serif text-alma-olive w-20">{cls.time}</p>
-                    <div>
-                      <p className="text-xl font-medium text-alma-text">{cls.name}</p>
-                      <p className="text-sm text-alma-textLight flex items-center gap-1 mt-1">
-                        <Clock className="w-4 h-4" /> 50 min
-                      </p>
-                    </div>
-                  </div>
-                  
-                  <div className="text-right">
-                    <span className={`px-3 py-1 rounded-full text-xs font-semibold ${cls.enrolled === cls.capacity ? 'bg-red-50 text-red-600' : 'bg-green-50 text-green-700'}`}>
-                      {cls.enrolled === cls.capacity ? 'Clase Llena' : 'Cupos disponibles'}
-                    </span>
-                    <p className="text-sm font-medium text-alma-text mt-2">
-                      {cls.enrolled} / {cls.capacity} asistentes
-                    </p>
-                  </div>
-                </div>
+      {activeTab === 'alumnos' && (
+        <ProfessorStudentsTab
+          studentSearch={studentSearch}
+          onStudentSearchChange={setStudentSearch}
+          filteredStudents={filteredStudents}
+        />
+      )}
 
-                {/* Lista de estudiantes anotados */}
-                <div>
-                  <p className="text-xs font-bold text-alma-textLight uppercase tracking-wider mb-3">Lista de asistencia</p>
-                  <div className="flex flex-wrap gap-2">
-                    {cls.students.map((student, index) => (
-                      <span key={index} className="px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-sm text-alma-text flex items-center gap-2">
-                        <div className="w-2 h-2 rounded-full bg-alma-olive"></div>
-                        {student}
-                      </span>
-                    ))}
-                    {cls.enrolled === 0 && <span className="text-sm text-alma-textLight italic">Aún no hay estudiantes anotados.</span>}
-                  </div>
-                </div>
-
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
+      <ProfessorMobileTabs activeTab={activeTab} onGoToTab={goToTab} />
     </div>
   );
 };

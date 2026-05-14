@@ -3,6 +3,7 @@ import { Check, CreditCard, Calendar, XCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
 import { useNavigate } from 'react-router-dom';
+import { showConfirm, showError, showSuccess } from '../../utils/alerts';
 
 const StudentHome = ({ data, onRefresh }) => {
     const { user } = useAuth();
@@ -13,16 +14,24 @@ const StudentHome = ({ data, onRefresh }) => {
     const navigate = useNavigate();
     
     const handleCancel = async (id) => {
-        if (window.confirm('¿Deseas cancelar tu asistencia a esta clase?')) {
+        const confirmed = await showConfirm({
+            title: 'Cancelar reserva',
+            text: '¿Deseas cancelar tu asistencia a esta clase?',
+            confirmButtonText: 'Cancelar reserva',
+            icon: 'warning',
+            confirmButtonColor: '#E07A5F',
+        });
+
+        if (confirmed) {
             try {
                 // 🔥 LA MAGIA ESTÁ AQUÍ: Cambiamos /reserve/ a /reserves/
                 await api.delete(`/reserves/${id}`);
                 
-                alert("Reserva cancelada correctamente. La clase se ha devuelto a tu plan.");
+                showSuccess("Reserva cancelada correctamente. La clase se ha devuelto a tu plan.");
                 onRefresh(); 
             } catch (error) {
                 const errorDelBackend = error.response?.data?.error || error.message;
-                alert(`Error: ${errorDelBackend}`);
+                showError(errorDelBackend);
             }
         }
     };
