@@ -1,7 +1,7 @@
 import React from 'react';
 import { Check, CreditCard, Calendar, XCircle } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import api from '../services/api';
+import { useAuth } from '../../contexts/AuthContext';
+import api from '../../services/api';
 import { useNavigate } from 'react-router-dom';
 import { showConfirm, showError, showSuccess } from '../../utils/alerts';
 

@@ -166,7 +166,7 @@ const classGenerator = cron.schedule('0 3 * * *', async () => {
     }
 }, { scheduled: false });
 
-const absentDetector = cron.schedule('*/1 * * * *', async () => {
+const absentDetector = cron.schedule('*/10 * * * *', async () => {
     console.log('[CRON] Iniciando detector de Ausentes');
         try {
             const count = await reserveService.processAbsences();
