@@ -1,8 +1,8 @@
 import React from 'react';
 import { Check, CreditCard, Calendar, XCircle } from 'lucide-react';
-import { useAuth } from '../contexts/AuthContext';
-import api from '../services/api';
-import { showConfirm, showError, showSuccess } from '../utils/alerts';
+import { useAuth } from '../../contexts/AuthContext';
+import api from '../../services/api';
+import { showConfirm, showError, showSuccess } from '../../utils/alerts';
 
 const StudentHome = ({ data, onRefresh }) => {
     const { user } = useAuth();

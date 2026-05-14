@@ -1,30 +1,21 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../../contexts/AuthContext';
 
-const Login = () => {
+const Register = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [phone, setPhone] = useState('');
+  const [name, setName] = useState('');
   const [error, setError] = useState('');
-  const { login } = useAuth();
+  const { register, login } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
     try {
-      // 1. Esperamos a que el login nos devuelva los datos del usuario
-      const response = await login(email, password);
-      const userRole = response.payload.rol;
-
-      // 2. Evaluamos el rol y redirigimos a la pantalla correcta
-      if (userRole === 'profesor') {
-        navigate('/profesor');
-      } else if (userRole === 'admin') {
-        navigate('/admin');
-      } else {
-        navigate('/inicio'); // Por defecto para alumnos
-      }
+      const response = await register(name, email, password, phone);
       
     } catch (err) {
       setError('Credenciales incorrectas. Intenta de nuevo.');
@@ -46,6 +37,17 @@ const Login = () => {
               {error}
             </div>
           )}
+
+          <div>
+            <label className="block text-sm font-medium text-alma-text mb-1">Nombre Completo</label>
+            <input 
+              type="text" 
+              className="w-full px-4 py-2 border border-alma-border rounded-lg focus:outline-none focus:ring-2 focus:ring-alma-olive bg-alma-bg"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              required 
+            />
+          </div>
           
           <div>
             <label className="block text-sm font-medium text-alma-text mb-1">Correo electrónico</label>
@@ -69,6 +71,17 @@ const Login = () => {
             />
           </div>
 
+          <div>
+            <label className="block text-sm font-medium text-alma-text mb-1">Teléfono</label>
+            <input 
+              type="tel" 
+              className="w-full px-4 py-2 border border-alma-border rounded-lg focus:outline-none focus:ring-2 focus:ring-alma-olive bg-alma-bg"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              required 
+            />
+          </div>
+
           <button 
             type="submit" 
             className="w-full bg-alma-olive hover:bg-alma-oliveHover text-white font-medium py-2.5 rounded-lg transition-colors mt-2"
@@ -76,10 +89,10 @@ const Login = () => {
             Ingresar
           </button>
         </form>
-
+        
       </div>
     </div>
   );
 };
 
-export default Login;
+export default Register;

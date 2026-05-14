@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Calendar, Users, Clock, Loader, ChevronRight, CheckCircle } from 'lucide-react';
-import api from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
-import { showConfirm, showError, showSuccess } from '../utils/alerts';
+import api from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
+import { showConfirm, showError, showSuccess } from '../../utils/alerts';
 
 const StudentBooking = ({ onRefresh }) => {
     const { user } = useAuth();

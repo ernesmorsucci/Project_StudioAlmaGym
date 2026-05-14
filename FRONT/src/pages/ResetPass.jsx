@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import ForgotPass from '../components/ForgotPass';
-import ResetPassForm from '../components/ResetPass';
+import ForgotPass from '../components/auth/ForgotPass';
+import ResetPassForm from '../components/auth/ResetPass';
 
 const ResetPass = () => {
   const [step, setStep] = useState('forgot');

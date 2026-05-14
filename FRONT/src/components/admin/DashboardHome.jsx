@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Users, TrendingUp, Calendar, ArrowRight, Bell, CreditCard, UserPlus } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import api from '../services/api';
+import api from '../../services/api';
 
 const DashboardHome = () => {
     const [, setSearchParams] = useSearchParams();

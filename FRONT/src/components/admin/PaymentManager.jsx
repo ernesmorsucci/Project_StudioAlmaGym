@@ -11,9 +11,9 @@ import {
     FileText, 
     CheckCircle 
 } from 'lucide-react';
-import api from '../services/api';
+import api from '../../services/api';
 import PaymentReceiptModal from './PaymentReceiptModal';
-import { showError, showWarning } from '../utils/alerts';
+import { showError, showWarning } from '../../utils/alerts';
 
 const PaymentManager = () => {
     // ESTADOS DE VISTA Y MODALES

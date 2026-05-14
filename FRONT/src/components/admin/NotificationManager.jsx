@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Send, Bell, Users, AlertCircle, Calendar, User, MessageSquare, CheckCircle } from 'lucide-react';
-import api from '../services/api';
-import { showError, showWarning } from '../utils/alerts';
+import api from '../../services/api';
+import { showError, showWarning } from '../../utils/alerts';
 
 const NotificationManager = () => {
     // ESTADOS DE DATOS

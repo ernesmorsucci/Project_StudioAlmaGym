@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Loader, AlertTriangle, Calendar, Megaphone, Bell } from 'lucide-react';
-import api from '../services/api';
-import { useAuth } from '../contexts/AuthContext';
+import api from '../../services/api';
+import { useAuth } from '../../contexts/AuthContext';
 
 // 🔥 DICCIONARIO INTELIGENTE: Mapeamos el "targetType" del Admin a un icono y color
 const NOTIFICATION_TYPES = {

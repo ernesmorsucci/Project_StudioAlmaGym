@@ -36,7 +36,15 @@ const Sidebar = () => {
     { path: '/admin?tab=planes', label: 'Planes', icon: <CreditCard className="w-5 h-5" /> },
   ];
 
-  const links = userRole === 'admin' ? adminLinks : studentLinks;
+  // 3. Menú de Profesoras
+  const professorLinks = [
+    { path: '/profesor', label: 'Inicio', icon: <Home className="w-5 h-5" /> },
+    { path: '/profesor?tab=clases', label: 'Mis clases', icon: <Calendar className="w-5 h-5" /> },
+    { path: '/profesor?tab=horas', label: 'Horas trabajadas', icon: <Clock className="w-5 h-5" /> },
+    { path: '/profesor?tab=alumnos', label: 'Alumnos', icon: <Users className="w-5 h-5" /> },
+  ];
+
+  const links = userRole === 'admin' ? adminLinks : userRole === 'profesor' ? professorLinks : studentLinks;
 
   // Función inteligente para que los botones se pinten de verde
   const isLinkActive = (path) => {
@@ -46,6 +54,13 @@ const Sidebar = () => {
     if (userRole === 'admin') {
       const activeAdminTab = currentTab || 'dashboard';
       return path.includes(`tab=${activeAdminTab}`);
+    } else if (userRole === 'profesor') {
+      if (!location.pathname.startsWith('/profesor')) return false;
+      if (path.includes('?tab=')) {
+        const linkTab = path.split('?tab=')[1];
+        return currentTab === linkTab;
+      }
+      return !currentTab || currentTab === 'inicio';
     } else {
       if (path.includes('?tab=')) {
         const linkTab = path.split('?tab=')[1];
@@ -62,9 +77,11 @@ const Sidebar = () => {
         <h1 className="text-2xl font-serif tracking-widest text-alma-text uppercase">Studio Alma</h1>
       </div>
 
-      {userRole === 'admin' && (
+      {(userRole === 'admin' || userRole === 'profesor') && (
         <div className="px-8 pb-3">
-          <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">Administración</span>
+          <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">
+            {userRole === 'admin' ? 'Administración' : 'Mis herramientas'}
+          </span>
         </div>
       )}
 

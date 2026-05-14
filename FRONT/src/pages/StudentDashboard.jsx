@@ -3,12 +3,12 @@ import { useSearchParams } from 'react-router-dom';
 import api from '../services/api';
 import { Loader } from 'lucide-react';
 
-import StudentHome from '../components/StudentHome';
-import StudentReservations from '../components/StudentReservations';
-import StudentBooking from '../components/StudentBooking';
-import StudentPayments from '../components/StudentPayments';
-import StudentNotifications from '../components/StudentNotifications';
-import StudentProfile from '../components/StudentProfile';
+import StudentHome from '../components/students/StudentHome';
+import StudentReservations from '../components/students/StudentReservations';
+import StudentBooking from '../components/students/StudentBooking';
+import StudentPayments from '../components/students/StudentPayments';
+import StudentNotifications from '../components/students/StudentNotifications';
+import StudentProfile from '../components/students/StudentProfile';
 
 const StudentDashboard = () => {
     const [searchParams] = useSearchParams();

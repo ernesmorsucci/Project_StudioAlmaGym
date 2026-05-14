@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, CreditCard, CalendarDays, Phone, Activity, HeartPulse, Save, Banknote, Landmark, Clock, CheckCircle, XCircle } from 'lucide-react';
-import api from '../services/api';
-import { showConfirm, showError, showSuccess, showWarning } from '../utils/alerts';
+import api from '../../services/api';
+import { showConfirm, showError, showSuccess, showWarning } from '../../utils/alerts';
 
 const StudentDetailModal = ({ student, onClose }) => {
     const [activeTab, setActiveTab] = useState('perfil');

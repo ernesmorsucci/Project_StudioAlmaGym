@@ -1,14 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import CreateScheduleForm from '../components/CreateScheduleForm';
-import CreateStudentForm from '../components/CreateStudentForm';
-import CreatePlanForm from '../components/CreatePlanForm';
-import CreateProfessorForm from '../components/CreateProfessorForm';
-import StudentDetailModal from '../components/StudentDetailModal';
+import CreateScheduleForm from '../components/admin/CreateScheduleForm';
+import CreateStudentForm from '../components/admin/CreateStudentForm';
+import CreatePlanForm from '../components/admin/CreatePlanForm';
+import CreateProfessorForm from '../components/admin/CreateProfessorForm';
+import StudentDetailModal from '../components/admin/StudentDetailModal';
 import api from '../services/api';
-import PaymentManager from '../components/PaymentManager'; // <-- MÓDULO DE PAGOS LISTO
-import NotificationManager from '../components/NotificationManager';
-import DashboardHome from '../components/DashboardHome';
+import PaymentManager from '../components/admin/PaymentManager'; // <-- MÓDULO DE PAGOS LISTO
+import NotificationManager from '../components/admin/NotificationManager';
+import DashboardHome from '../components/admin/DashboardHome';
 import { showConfirm, showError } from '../utils/alerts';
 
 
