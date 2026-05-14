@@ -19,7 +19,8 @@ const schema = new mongoose.Schema({
     },
     status: {
         type: String,
-        enum: ['reserved', 'attended', 'cancelled', 'absent'],
+        // 🔥 AGREGAMOS 'waitlist' A LA LISTA DE PERMITIDOS
+        enum: ['reserved', 'cancelled', 'attended', 'absent', 'waitlist'], 
         default: 'reserved'
     }
 }, { timestamps: true });

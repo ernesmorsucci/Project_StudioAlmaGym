@@ -25,7 +25,7 @@ const StudentBooking = ({ onRefresh }) => {
             futureClasses.forEach(cls => {
                 const dateObj = new Date(cls.dateTime);
                 const dayKey = new Date(dateObj.getFullYear(), dateObj.getMonth(), dateObj.getDate()).getTime();
-                
+
                 if (!grouped[dayKey]) {
                     grouped[dayKey] = {
                         dateObj: dateObj,
@@ -54,7 +54,7 @@ const StudentBooking = ({ onRefresh }) => {
         const capacity = classItem.maxQuota || 0;
         const enrolledCount = classItem.occupiedQuota || 0;
         const isFull = enrolledCount >= capacity;
-        
+
         const msg = isFull ? "¿Deseas entrar en la lista de espera?" : `¿Reservar lugar para ${classItem.name}?`;
 
         if (window.confirm(msg)) {
@@ -67,7 +67,7 @@ const StudentBooking = ({ onRefresh }) => {
                 });
                 alert(isFull ? "¡Te has unido a la lista de espera!" : "¡Reserva confirmada!");
                 fetchAvailableClasses();
-                if (onRefresh) onRefresh(); 
+                if (onRefresh) onRefresh();
             } catch (error) {
                 alert(error.response?.data?.error || "Error al procesar la reserva.");
             } finally {
@@ -75,7 +75,28 @@ const StudentBooking = ({ onRefresh }) => {
             }
         }
     };
+    // Función para calcular la duración real de la clase
+    const getRealDuration = (start, end) => {
+        if (!start || !end) return '60 min'; // Respaldo por si falta un dato
 
+        try {
+            // Caso 1: Formato texto "09:00" y "10:30"
+            if (!start.includes('T')) {
+                const [startH, startM] = start.split(':').map(Number);
+                const [endH, endM] = end.split(':').map(Number);
+                const totalMins = ((endH * 60) + endM) - ((startH * 60) + startM);
+                return `${totalMins > 0 ? totalMins : 60} min`;
+            }
+
+            // Caso 2: Formato fecha ISO "2026-05-14T09:00:00Z"
+            const startDate = new Date(start);
+            const endDate = new Date(end);
+            const diffMins = Math.round((endDate - startDate) / 60000);
+            return `${diffMins > 0 ? diffMins : 60} min`;
+        } catch (error) {
+            return '60 min'; // Respaldo anti-errores
+        }
+    };
     if (loading) return (
         <div className="flex justify-center py-20"><Loader className="animate-spin text-alma-olive w-10 h-10" /></div>
     );
@@ -91,7 +112,7 @@ const StudentBooking = ({ onRefresh }) => {
             </div>
 
             {groupedClasses.length === 0 ? (
-                 <div className="py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200">
+                <div className="py-20 text-center bg-white rounded-3xl border border-dashed border-gray-200">
                     <p className="text-gray-400">No hay clases programadas para los próximos días.</p>
                 </div>
             ) : (
@@ -103,7 +124,7 @@ const StudentBooking = ({ onRefresh }) => {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {group.classes.map((cls) => {
                                 const dateObj = new Date(cls.dateTime);
-                                
+
                                 // Lectura de campos exactos de tu modelo de mongoose
                                 const capacity = cls.maxQuota || 0;
                                 const enrolledCount = cls.occupiedQuota || 0;
@@ -115,14 +136,14 @@ const StudentBooking = ({ onRefresh }) => {
                                             <span className="bg-alma-olive/5 text-alma-olive px-4 py-1 rounded-full text-[10px] font-black uppercase tracking-widest">
                                                 Presencial
                                             </span>
-                                            
+
                                             {/* 🔥 AQUÍ ESTÁ LA MAGIA DEL FORMATO 0/5 */}
                                             <div className={`flex items-center gap-1.5 text-xs font-bold ${isFull ? 'text-red-500' : 'text-alma-olive'}`}>
-                                                <Users className="w-4 h-4" /> 
+                                                <Users className="w-4 h-4" />
                                                 <span>{enrolledCount}/{capacity} {isFull ? '(Llena)' : 'ocupados'}</span>
                                             </div>
                                         </div>
-                                        
+
                                         <div className="flex items-center gap-5 mb-6">
                                             <div className="bg-gray-50 w-16 h-16 rounded-2xl flex flex-col items-center justify-center border border-gray-100">
                                                 <Clock className="w-6 h-6 text-alma-olive mb-1" />
@@ -131,11 +152,13 @@ const StudentBooking = ({ onRefresh }) => {
                                                 </span>
                                             </div>
                                             <div>
-                                                <p className="font-bold text-gray-800 text-xl">{cls.name}</p>
-                                                <p className="text-xs text-gray-500 mt-1">Duración: 60 min</p>
+                                                <p className="font-bold text-gray-800 text-xl mb-1">{cls.name}</p>
+                                                <span className="text-sm text-gray-500 bg-gray-100 px-2.5 py-1 rounded-md font-medium">
+                                                    {getRealDuration(cls.dateTime, cls.endTime)}
+                                                </span>
                                             </div>
                                         </div>
-                                        
+
                                         <button
                                             onClick={() => handleBooking(cls)}
                                             disabled={bookingId === cls._id}

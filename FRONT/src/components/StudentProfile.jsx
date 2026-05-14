@@ -35,9 +35,7 @@ const StudentProfile = () => {
         const passwordChanged = formData.password.trim() !== '';
 
         try {
-            // Si hay cambios sensibles (Email o Contraseña), disparamos el flujo 2FA
             if (emailChanged || passwordChanged) {
-                // Notificamos al backend que envíe el código (al nuevo correo o al actual según corresponda)
                 await api.post('/users/request-update-code', { 
                     newEmail: emailChanged ? formData.email : null,
                     changingPassword: passwordChanged
@@ -53,45 +51,69 @@ const StudentProfile = () => {
                 setVerificationType(emailChanged ? 'email' : 'password');
                 setShowCodeModal(true);
             } else {
-                // Si solo cambió el nombre o teléfono, actualizamos directo
                 const res = await api.put(`/users/${user._id}`, {
                     name: formData.name,
                     phone: formData.phone
                 });
-                setUser({ ...user, name: formData.name, phone: formData.phone });
+                
+                // 🔥 PROTECCIÓN: Solo lo ejecutamos si la función existe
+                if (typeof setUser === 'function') {
+                    setUser({ ...user, name: formData.name, phone: formData.phone });
+                }
                 setMessage({ type: 'success', text: 'Perfil actualizado correctamente.' });
             }
         } catch (error) {
-            setMessage({ type: 'error', text: error.response?.data?.error || 'Error al procesar la solicitud.' });
+            console.error("🔍 Error frontend:", error);
+            setMessage({ type: 'error', text: error.response?.data?.error || error.message });
         } finally {
             setLoading(false);
         }
     };
 
-    const handleVerifyCode = async () => {
+    const handleVerifyCode = async (e) => {
+        if (e) e.preventDefault();
+        if (loading) return; 
+
         if (verificationCode.length !== 6) {
             return setMessage({ type: 'error', text: 'El código debe tener 6 dígitos.' });
         }
 
         setLoading(true);
         try {
-            // Mandamos el código y los datos pendientes para que el backend valide y guarde todo junto
             const res = await api.post('/users/verify-update', {
                 code: verificationCode,
                 updates: pendingChanges
             });
 
-            // Actualizamos el contexto global
-            setUser(res.data.payload);
+            // 🔥 PROTECCIÓN CONTRA EL "TypeError"
+            if (typeof setUser === 'function') {
+                setUser(res.data.payload);
+            }
             
             setShowCodeModal(false);
             setVerificationCode('');
             setFormData({ ...formData, password: '' }); 
-            setMessage({ type: 'success', text: '¡Cambios verificados y guardados con éxito!' });
             
-            setTimeout(() => setMessage({ type: '', text: '' }), 5000);
+            const successText = verificationType === 'password' 
+                ? '¡Contraseña cambiada correctamente! 🔐' 
+                : '¡Correo verificado y actualizado con éxito! 📧';
+                
+            setMessage({ type: 'success', text: successText });
+            
+            setTimeout(() => setMessage({ type: '', text: '' }), 6000);
         } catch (error) {
-            setMessage({ type: 'error', text: error.response?.data?.error || 'Código inválido o expirado.' });
+            // 🔥 AHORA SÍ VEREMOS EL ERROR REAL EN LA CONSOLA DEL NAVEGADOR
+            console.error("🔍 Detalles del error capturado:", error);
+
+            // Extraemos el error real (ya sea del backend o de javascript)
+            let errorText = 'Ocurrió un error inesperado.';
+            if (error.response && error.response.data && error.response.data.error) {
+                errorText = error.response.data.error; // Lo que dice el Backend
+            } else if (error.message) {
+                errorText = error.message; // Lo que dice React
+            }
+
+            setMessage({ type: 'error', text: errorText });
         } finally {
             setLoading(false);
         }

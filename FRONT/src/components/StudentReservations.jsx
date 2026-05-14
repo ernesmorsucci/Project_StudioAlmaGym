@@ -38,10 +38,10 @@ const StudentReservations = ({ onRefresh }) => {
                 };
 
                 // Si la clase es futura y está reservada, va a Próximas
-                if (reserveDate >= now && reserve.status === 'reserved') {
+                // 🔥 Ahora las "waitlist" también van a la tabla de Próximas
+                if (reserveDate >= now && (reserve.status === 'reserved' || reserve.status === 'waitlist')) {
                     upcomingList.push(formatted);
                 } 
-                // 🔥 LA SOLUCIÓN: Todo lo que no sea una reserva activa futura, va al historial (incluyendo canceladas)
                 else {
                     pastList.push(formatted);
                 }
@@ -75,7 +75,7 @@ const StudentReservations = ({ onRefresh }) => {
             }
         }
     };
-
+    
     if (loading) return (
         <div className="flex justify-center items-center py-20">
             <Loader className="animate-spin text-alma-olive w-10 h-10" />
@@ -112,9 +112,14 @@ const StudentReservations = ({ onRefresh }) => {
                                         <td className="py-5 text-gray-600">{res.dateStr}</td>
                                         <td className="py-5 text-gray-600">{res.timeStr}</td>
                                         <td className="py-5 text-gray-600">{res.professor}</td>
-                                        <td className="py-5">
-                                            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-green-50 text-green-700 text-xs font-bold">
-                                                <span className="w-1.5 h-1.5 rounded-full bg-green-500"></span> Confirmada
+                                      <td className="py-5">
+                                            <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                                                res.status === 'reserved' ? 'bg-green-50 text-green-700' : 'bg-amber-50 text-amber-700'
+                                            }`}>
+                                                <span className={`w-1.5 h-1.5 rounded-full ${
+                                                    res.status === 'reserved' ? 'bg-green-500' : 'bg-amber-500'
+                                                }`}></span> 
+                                                {res.status === 'reserved' ? 'Confirmada' : 'En cola'}
                                             </span>
                                         </td>
                                         <td className="py-5 text-right pr-2">

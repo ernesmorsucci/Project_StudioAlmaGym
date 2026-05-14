@@ -2,6 +2,7 @@ import React from 'react';
 import { Check, CreditCard, Calendar, XCircle } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import api from '../services/api';
+import { useNavigate } from 'react-router-dom';
 
 const StudentHome = ({ data, onRefresh }) => {
     const { user } = useAuth();
@@ -9,7 +10,8 @@ const StudentHome = ({ data, onRefresh }) => {
     
     const isExpired = data?.membership?.expireDate ? new Date(data.membership.expireDate) < new Date() : false;
     const hasNoPlan = data?.membership?.status === 'Sin plan';
-
+    const navigate = useNavigate();
+    
     const handleCancel = async (id) => {
         if (window.confirm('¿Deseas cancelar tu asistencia a esta clase?')) {
             try {
@@ -63,7 +65,7 @@ const StudentHome = ({ data, onRefresh }) => {
                         <h3 className="text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Cuota del Mes</h3>
                         <p className="text-5xl font-serif text-gray-800">${data?.nextPayment?.amount?.toLocaleString('es-AR')}</p>
                     </div>
-                    <button className="mt-6 bg-gray-800 text-white text-sm font-bold py-3.5 px-7 rounded-2xl hover:bg-black transition-all flex items-center gap-2 w-fit shadow-lg">
+                    <button onClick={() => navigate('/inicio?tab=pagos')} className="mt-6 bg-gray-800 text-white text-sm font-bold py-3.5 px-7 rounded-2xl hover:bg-black transition-all flex items-center gap-2 w-fit shadow-lg">
                         <CreditCard className="w-4 h-4"/> Abonar Cuota
                     </button>
                 </div>

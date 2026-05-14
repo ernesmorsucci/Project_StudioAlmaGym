@@ -31,22 +31,29 @@ export const cancelReserve = async (req, res) => {
     }
 };
 
-// 3. Obtener reservas de un alumno específico (🔥 AQUÍ ESTABA EL ERROR DEL MODAL)
 // 3. Obtener reservas de un alumno específico
 export const getStudentReserves = async (req, res) => {
     try {
         const { uid } = req.params;
+        const { upcoming } = req.query;
 
-        // 🔥 LA MAGIA: Agregamos .limit(30) para traer solo las más relevantes
-        const reserves = await reserveModel.find({ studentId: uid })
+        let query = { studentId: uid };
+
+        if (upcoming === 'true') {
+            // 🔥 SOLUCIÓN 1: Usamos la fecha y HORA EXACTA actual
+            query.date = { $gte: new Date() };
+            // 🔥 Evitamos que salgan clases canceladas en las "Próximas"
+            query.status = 'reserved'; 
+        }
+
+        const reserves = await reserveModel.find(query)
             .populate({
                 path: 'scheduleId',
                 populate: { path: 'professorId', select: 'name' }
             })
-            .sort({ date: -1 })
-            .limit(25); // <-- LÍMITE APLICADO AQUÍ
+            .sort({ date: 1 }) // Ordenar de más próxima a más lejana
+            .limit(25);
 
-        // Mapeamos creando un "alias" (class) por si el frontend busca ese nombre
         const formattedReserves = reserves.map(r => {
             const doc = r.toJSON();
             doc.class = doc.scheduleId;   

@@ -8,12 +8,33 @@ const planRepo = new PlanRepository();
 
 export default class PaymentService {
     
-    async getAll() { 
-        return paymentRepo.get ? await paymentRepo.get() : await paymentRepo.getAll(); 
+    // 🔥 AHORA LE ENSEÑAMOS A RECIBIR FILTROS (filter = {})
+    async getAll(filter = {}) { 
+        return paymentRepo.get ? await paymentRepo.get(filter) : await paymentRepo.getAll(filter); 
     }
     
     async getBy(filter) { 
         return await paymentRepo.getBy(filter); 
+    }
+
+    // ==========================================
+    // HERRAMIENTAS PARA EL CRON JOB NOCTURNO
+    // ==========================================
+    async getPendingExpiredPayments() {
+        const now = new Date();
+        const filter = { 
+            status: 'pending', 
+            expiration: { $lt: now } 
+        };
+        
+        // Usamos la misma lógica robusta que tienes en getAll()
+        return paymentRepo.get 
+            ? await paymentRepo.get(filter) 
+            : await paymentRepo.getAll(filter);
+    }
+
+    async update(id, data) {
+        return await paymentRepo.update(id, data);
     }
     
     // 🔥 EL NUEVO FLUJO UNIFICADO EXACTO COMO LO PEDISTE

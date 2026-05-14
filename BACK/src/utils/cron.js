@@ -1,6 +1,7 @@
 import cron from "node-cron";
 import { membershipService, paymentService } from "../services/index.service.js";
-import { recurrentScheduleService, classService } from "../services/index.service.js";
+import { recurrentScheduleService, classService, reserveService } from "../services/index.service.js";
+import reserveModel from '../dao/models/reserve.model.js';
 /**
  * CRON JOBS - Studio Alma
  * 
@@ -164,6 +165,19 @@ const classGenerator = cron.schedule('0 3 * * *', async () => {
         console.error('[CRON] Error en el generador de clases:', error.message);
     }
 }, { scheduled: false });
+
+const absentDetector = cron.schedule('*/1 * * * *', async () => {
+    console.log('[CRON] Iniciando detector de Ausentes');
+        try {
+            const count = await reserveService.processAbsences();
+
+            if (count > 0) {
+                console.log(`[CRON] 🕒 Se procesaron ${count} clases vencidas (Ausente + Reembolso de crédito).`);
+            }
+        } catch (error) {
+            console.error("[CRON] Error actualizando ausencias:", error.message);
+        }
+    });
 // ==========================================
 // FUNCIÓN PRINCIPAL - llamar desde app.js
 // ==========================================
@@ -172,5 +186,6 @@ export const startCronJobs = () => {
     membershipExpirationCheck.start();
     paymentExpirationCheck.start();
     classGenerator.start()
+    absentDetector.start()
     console.log('[CRON] Todos los jobs iniciados correctamente.');
 };

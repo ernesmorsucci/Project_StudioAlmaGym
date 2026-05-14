@@ -66,11 +66,21 @@ export const getStudentPayments = async (req, res) => {
     try {
         const { uid } = req.params; 
         
-        // Evitamos validaciones estrictas de req.user que a veces causan crash si el token varía
-        // y usamos el método estándar getAll que NUNCA falla.
-        const payments = await repoPaymentService.getAll({ studentId: uid });
+        const allPayments = await repoPaymentService.getAll();
         
-        res.status(200).json({ status: "success", payload: payments });
+        // 🔥 LA MAGIA: Extraemos el ID correctamente, sin importar si Mongoose 
+        // nos trajo el objeto completo poblado o solo el ID en texto.
+        const studentPayments = allPayments.filter(payment => {
+            if (!payment.studentId) return false;
+
+            const paymentStudentId = payment.studentId._id 
+                ? payment.studentId._id.toString() 
+                : payment.studentId.toString();
+
+            return paymentStudentId === uid.toString();
+        });
+        
+        res.status(200).json({ status: "success", payload: studentPayments });
     } catch (error) {
         console.error("❌ Error en getStudentPayments:", error);
         res.status(500).json({ status: "error", error: error.message });

@@ -22,7 +22,7 @@ const Sidebar = () => {
     { path: '/inicio?tab=mis-reservas', label: 'Mis Reservas', icon: <BookmarkCheck className="w-5 h-5" /> },
     { path: '/inicio?tab=pagos', label: 'Pagos', icon: <CreditCard className="w-5 h-5" /> },
     { path: '/inicio?tab=notificaciones', label: 'Notificaciones', icon: <Bell className="w-5 h-5" /> },
-    { path: '/inicio?tab=mi perfil', label: 'Perfil', icon: <Bell className="w-5 h-5" /> },
+    { path: '/inicio?tab=mi perfil', label: 'Perfil', icon: <UserCircle className="w-5 h-5" /> },
   ];
 
   // 2. Menú de Admin

@@ -311,15 +311,17 @@ const AdminDashboard = () => {
                     <td className="px-6 py-4 text-gray-600">{schedule.startTime} - {schedule.endTime}</td>
                     <td className="px-6 py-4 text-gray-600">{schedule.professorId ? schedule.professorId.name : 'Sin asignar'}</td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <div className="w-full bg-gray-100 rounded-full h-1.5 max-w-[60px]">
+                      <div className="flex items-center gap-3"> {/* Aumentamos un poco el gap para que respire */}
+                        <div className="w-full bg-gray-100 rounded-full h-1.5 max-w-[60px] hidden sm:block">
                           <div
                             className="bg-alma-olive h-1.5 rounded-full"
                             style={{ width: `${((schedule.registeredCount || 0) / schedule.maxQuota) * 100}%` }}
                           ></div>
                         </div>
-                        <span className="text-gray-600 font-bold">
-                          {schedule.registeredCount || 0}/{schedule.maxQuota}
+
+                        {/* 🔥 LA SOLUCIÓN: Usamos whitespace-nowrap para forzar una sola línea */}
+                        <span className="text-gray-600 font-bold whitespace-nowrap text-sm">
+                          Max {schedule.maxQuota}
                         </span>
                       </div>
                     </td>
