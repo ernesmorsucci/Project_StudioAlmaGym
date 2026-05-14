@@ -46,7 +46,7 @@ const StudentDashboard = () => {
             {activeTab === 'agendar' && <StudentBooking onRefresh={fetchDashboardData} />}
             {activeTab === 'pagos' && <StudentPayments />}
             {activeTab === 'notificaciones' && <StudentNotifications />}
-            {activeTab === 'mi perfil' && <StudentProfile />}
+            {activeTab === 'mi-perfil' && <StudentProfile />}
         </div>
     );
 };

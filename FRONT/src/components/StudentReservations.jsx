@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Loader } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { showConfirm, showError, showSuccess } from '../utils/alerts';
 
 const StudentReservations = ({ onRefresh }) => {
     const { user } = useAuth();
@@ -64,14 +65,22 @@ const StudentReservations = ({ onRefresh }) => {
     }, []);
 
     const handleCancel = async (id) => {
-        if (window.confirm('¿Deseas cancelar tu asistencia a esta clase?')) {
+        const confirmed = await showConfirm({
+            title: 'Cancelar reserva',
+            text: '¿Deseas cancelar tu asistencia a esta clase?',
+            confirmButtonText: 'Cancelar reserva',
+            icon: 'warning',
+            confirmButtonColor: '#E07A5F',
+        });
+
+        if (confirmed) {
             try {
                 await api.delete(`/reserves/${id}`);
-                alert("Reserva cancelada correctamente. La clase ha sido devuelta a tu plan.");
+                showSuccess("Reserva cancelada correctamente. La clase ha sido devuelta a tu plan.");
                 fetchReservations(); 
                 if (onRefresh) onRefresh(); 
             } catch (error) {
-                alert(error.response?.data?.error || "Error al cancelar la reserva.");
+                showError(error.response?.data?.error || "Error al cancelar la reserva.");
             }
         }
     };

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, Users, Clock, Loader, ChevronRight, CheckCircle } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
+import { showConfirm, showError, showSuccess } from '../utils/alerts';
 
 const StudentBooking = ({ onRefresh }) => {
     const { user } = useAuth();
@@ -57,7 +58,13 @@ const StudentBooking = ({ onRefresh }) => {
         
         const msg = isFull ? "¿Deseas entrar en la lista de espera?" : `¿Reservar lugar para ${classItem.name}?`;
 
-        if (window.confirm(msg)) {
+        const confirmed = await showConfirm({
+            title: isFull ? 'Lista de espera' : 'Reservar clase',
+            text: msg,
+            confirmButtonText: isFull ? 'Anotarme' : 'Reservar',
+        });
+
+        if (confirmed) {
             setBookingId(classItem._id);
             try {
                 await api.post('/reserves', {
@@ -65,11 +72,11 @@ const StudentBooking = ({ onRefresh }) => {
                     scheduleId: classItem._id,
                     date: classItem.dateTime
                 });
-                alert(isFull ? "¡Te has unido a la lista de espera!" : "¡Reserva confirmada!");
+                showSuccess(isFull ? "Te has unido a la lista de espera." : "Reserva confirmada.");
                 fetchAvailableClasses();
                 if (onRefresh) onRefresh(); 
             } catch (error) {
-                alert(error.response?.data?.error || "Error al procesar la reserva.");
+                showError(error.response?.data?.error || "Error al procesar la reserva.");
             } finally {
                 setBookingId(null);
             }

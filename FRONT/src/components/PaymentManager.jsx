@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import api from '../services/api';
 import PaymentReceiptModal from './PaymentReceiptModal';
+import { showError, showWarning } from '../utils/alerts';
 
 const PaymentManager = () => {
     // ESTADOS DE VISTA Y MODALES
@@ -83,7 +84,7 @@ const PaymentManager = () => {
     // PROCESAR NUEVO COBRO
     const handleConfirmPayment = async () => {
         if (!paymentData.studentId || !paymentData.planId || !paymentData.amount) {
-            return alert("Por favor complete todos los campos obligatorios.");
+            return showWarning("Por favor complete todos los campos obligatorios.");
         }
 
         setIsSubmitting(true);
@@ -98,7 +99,7 @@ const PaymentManager = () => {
             setView('history'); // Volvemos al historial automáticamente
         } catch (error) {
             console.error("Error al procesar el pago:", error);
-            alert(error.response?.data?.error || "Hubo un error al procesar el pago.");
+            showError(error.response?.data?.error || "Hubo un error al procesar el pago.");
         } finally {
             setIsSubmitting(false);
         }

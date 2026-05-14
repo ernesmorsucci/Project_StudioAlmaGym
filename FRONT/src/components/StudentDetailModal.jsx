@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, User, CreditCard, CalendarDays, Phone, Activity, HeartPulse, Save, Banknote, Landmark, Clock, CheckCircle, XCircle } from 'lucide-react';
 import api from '../services/api';
+import { showConfirm, showError, showSuccess, showWarning } from '../utils/alerts';
 
 const StudentDetailModal = ({ student, onClose }) => {
     const [activeTab, setActiveTab] = useState('perfil');
@@ -108,14 +109,22 @@ const StudentDetailModal = ({ student, onClose }) => {
     };
 
     const handleCancelReservation = async (reservationId) => {
-        if (window.confirm("¿Estás seguro de que deseas cancelar esta reserva? Se le devolverá el cupo al alumno automáticamente.")) {
+        const confirmed = await showConfirm({
+            title: 'Cancelar reserva',
+            text: '¿Estás seguro de que deseas cancelar esta reserva? Se le devolverá el cupo al alumno automáticamente.',
+            confirmButtonText: 'Cancelar reserva',
+            icon: 'warning',
+            confirmButtonColor: '#E07A5F',
+        });
+
+        if (confirmed) {
             try {
                 await api.delete(`/reserves/${reservationId}`);
-                alert("Reserva cancelada exitosamente.");
+                showSuccess("Reserva cancelada exitosamente.");
                 fetchReservations(); 
             } catch (error) {
                 console.error("Error al cancelar:", error);
-                alert(error.response?.data?.error || "Error al cancelar la reserva.");
+                showError(error.response?.data?.error || "Error al cancelar la reserva.");
             }
         }
     };
@@ -132,7 +141,7 @@ const StudentDetailModal = ({ student, onClose }) => {
             student.healthNotes = formData.healthNotes || 'Sin notas';
             setIsEditing(false);
         } catch (error) {
-            alert("Hubo un error al guardar los datos.");
+            showError("Hubo un error al guardar los datos.");
         } finally {
             setIsSaving(false);
         }
@@ -140,7 +149,7 @@ const StudentDetailModal = ({ student, onClose }) => {
 
     const handleConfirmPayment = async () => {
         if (!paymentData.planId || !paymentData.amount) {
-            return alert("Por favor seleccione un plan y asegúrese de que el monto esté completo.");
+            return showWarning("Por favor seleccione un plan y asegúrese de que el monto esté completo.");
         }
 
         try {
@@ -151,12 +160,12 @@ const StudentDetailModal = ({ student, onClose }) => {
                 method: paymentData.method
             });
 
-            alert(`¡Pago exitoso! La membresía se ha actualizado correctamente.`);
+            await showSuccess("Pago exitoso. La membresía se ha actualizado correctamente.");
             setShowPaymentForm(false);
             onClose(); 
         } catch (error) {
             console.error("Error al procesar el pago:", error);
-            alert(error.response?.data?.error || "Hubo un error al procesar el pago.");
+            showError(error.response?.data?.error || "Hubo un error al procesar el pago.");
         }
     };
 
