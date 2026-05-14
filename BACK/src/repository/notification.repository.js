@@ -8,13 +8,11 @@ export default class NotificationRepository extends GenericRepository {
         super(dao);
     }
 
-    
     getForUser = async (userId) => {
-        return await this.dao.get({
-            $or: [
-                { receivers: 'all' },
-                { receivers: 'specific', studentIds: userId }
-            ]
-        });
+        // 🔥 LA MAGIA: Buscamos donde el ID del alumno esté dentro del array de destinatarios
+        // Lo ordenamos de más nuevo a más viejo y limitamos a los últimos 20 avisos.
+        return await this.dao.model.find({ studentIds: userId })
+            .sort({ createdAt: -1 }) 
+            .limit(20);
     };
 }

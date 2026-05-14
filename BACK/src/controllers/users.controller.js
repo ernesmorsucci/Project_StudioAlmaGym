@@ -1,6 +1,8 @@
 import { userService, membershipService, planService } from '../services/index.service.js';
 import { createHash } from '../utils/hash.js'; // <-- ¡NUEVO! Importamos la función para encriptar
+import EmailService from '../services/email.service.js';
 
+const emailService = new EmailService();
 //crear alumno con membresia (usado en el dashboard de admin)
 export const createStudentWithMembership = async (req, res) => {
     try {
@@ -177,6 +179,95 @@ export const getProfessors = async (req, res) => {
         res.status(500).json({ status: 'error', error: error.message });
     }
 };
+// ==========================================
+// SEGURIDAD: VERIFICACIÓN 2FA PARA PERFIL
+// ==========================================
+export const requestUpdateCode = async (req, res) => {
+    try {
+        const { newEmail, changingPassword } = req.body;
+        // Protección extra por si el token usa .id en lugar de ._id
+        const userId = req.user._id || req.user.id; 
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        const expires = new Date(Date.now() + 15 * 60 * 1000); 
+
+        // 🕵️‍♂️ DEBUG: Confirmar que estamos guardando el código
+        console.log(`\n[2FA] Generando código ${code} para el usuario ${userId}`);
+
+        await userService.update(userId, {
+            resetCode: code,
+            resetCodeExpires: expires
+        });
+
+        const targetEmail = newEmail ? newEmail : req.user.email;
+        await emailService.sendRecoveryCode(targetEmail, code);
+
+        res.status(200).json({ status: 'success', message: 'Código de verificación enviado.' });
+    } catch (error) {
+        console.error("Error en requestUpdateCode:", error);
+        res.status(500).json({ status: 'error', error: 'Error al generar el código de seguridad.' });
+    }
+};
+
+export const verifyUpdate = async (req, res) => {
+    try {
+        const { code, updates } = req.body;
+        const userId = req.user._id || req.user.id;
+
+        const user = await userService.getById(userId);
+        const cleanCode = code ? code.toString().trim() : '';
+
+        // 1. Validaciones de seguridad
+        if (!user || !user.resetCode) {
+            return res.status(400).json({ status: 'error', error: 'No hay ningún código pendiente para este usuario.' });
+        }
+
+        if (user.resetCode !== cleanCode) {
+            return res.status(400).json({ status: 'error', error: 'El código ingresado es incorrecto.' });
+        }
+
+        // Comparamos el tiempo exacto en milisegundos para evitar fallos de zona horaria
+        const now = new Date().getTime();
+        const expires = new Date(user.resetCodeExpires).getTime();
+        if (now > expires) {
+            return res.status(400).json({ status: 'error', error: 'El código ha expirado. Solicita uno nuevo.' });
+        }
+
+        // 2. Preparación de los datos a guardar
+        const finalUpdates = { ...updates, resetCode: null, resetCodeExpires: null };
+
+        if (finalUpdates.password && finalUpdates.password.trim() !== '') {
+            finalUpdates.password = await createHash(finalUpdates.password);
+        } else {
+            delete finalUpdates.password; // Evita guardar contraseñas vacías
+        }
+
+        // 🔥 LA SOLUCIÓN: Limpiamos cualquier campo "undefined" que el frontend haya enviado 
+        // y que esté haciendo explotar a Mongoose en silencio.
+        Object.keys(finalUpdates).forEach(key => {
+            if (finalUpdates[key] === undefined) {
+                delete finalUpdates[key];
+            }
+        });
+
+        // 3. Guardado en Base de Datos
+        const updatedUser = await userService.update(userId, finalUpdates);
+
+        // Si el DAO no devuelve el usuario actualizado, lanzamos un error claro
+        if (!updatedUser) {
+            throw new Error("No se pudo actualizar el documento en MongoDB.");
+        }
+
+        const safeUser = updatedUser.toObject ? updatedUser.toObject() : updatedUser;
+        delete safeUser.password;
+
+        res.status(200).json({ status: 'success', payload: safeUser });
+    } catch (error) {
+        console.error("❌ Error en verifyUpdate:", error);
+        // 🔥 Ahora obligamos al servidor a mandar el error EXACTO al frontend
+        res.status(400).json({ status: 'error', error: `Fallo interno: ${error.message}` });
+    }
+};
 
 export default {
     createStudentWithMembership,
@@ -190,5 +281,7 @@ export default {
     getAllByRole,
     getProfessorsDirectory,
     getStudentsDirectory,
-    getProfessors
+    getProfessors,
+    requestUpdateCode,
+    verifyUpdate
 };

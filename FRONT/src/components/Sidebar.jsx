@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Home, Calendar, Users, Clock, CreditCard, Bell, LogOut, UserCircle } from 'lucide-react';
+import { Home, Calendar, Users, Clock, CreditCard, Bell, LogOut, UserCircle, BookmarkCheck } from 'lucide-react';
 
 const Sidebar = () => {
   const { user, logout } = useAuth();
@@ -15,13 +15,17 @@ const Sidebar = () => {
 
   const userRole = (user?.role || user?.rol)?.toLowerCase();
 
-  // 1. Menú de Alumnos
+  // 1. Menú de Alumnos (¡AQUÍ ESTÁN LAS NUEVAS PESTAÑAS!)
   const studentLinks = [
     { path: '/inicio', label: 'Inicio', icon: <Home className="w-5 h-5" /> },
-    { path: '/reservar', label: 'Reservar clase', icon: <Calendar className="w-5 h-5" /> },
+    { path: '/inicio?tab=agendar', label: 'Reservar clase', icon: <Calendar className="w-5 h-5" /> },
+    { path: '/inicio?tab=mis-reservas', label: 'Mis Reservas', icon: <BookmarkCheck className="w-5 h-5" /> },
+    { path: '/inicio?tab=pagos', label: 'Pagos', icon: <CreditCard className="w-5 h-5" /> },
+    { path: '/inicio?tab=notificaciones', label: 'Notificaciones', icon: <Bell className="w-5 h-5" /> },
+    { path: '/inicio?tab=mi perfil', label: 'Perfil', icon: <Bell className="w-5 h-5" /> },
   ];
 
-  // 2. Menú de Admin (Manejado por parámetros en la URL para no crear múltiples archivos)
+  // 2. Menú de Admin
   const adminLinks = [
     { path: '/admin?tab=dashboard', label: 'Dashboard', icon: <Home className="w-5 h-5" /> },
     { path: '/admin?tab=alumnos', label: 'Alumnos', icon: <Users className="w-5 h-5" /> },
@@ -34,31 +38,37 @@ const Sidebar = () => {
 
   const links = userRole === 'admin' ? adminLinks : studentLinks;
 
-  // Función para determinar si el botón del menú debe pintarse de verde
+  // Función inteligente para que los botones se pinten de verde
   const isLinkActive = (path) => {
+    const searchParams = new URLSearchParams(location.search);
+    const currentTab = searchParams.get('tab');
+
     if (userRole === 'admin') {
-      const currentTab = new URLSearchParams(location.search).get('tab') || 'dashboard';
-      return path.includes(`tab=${currentTab}`);
+      const activeAdminTab = currentTab || 'dashboard';
+      return path.includes(`tab=${activeAdminTab}`);
+    } else {
+      if (path.includes('?tab=')) {
+        const linkTab = path.split('?tab=')[1];
+        return currentTab === linkTab && location.pathname.startsWith('/inicio');
+      } else {
+        return location.pathname === path && (!currentTab || currentTab === 'inicio');
+      }
     }
-    return location.pathname === path;
   };
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen fixed left-0 top-0">
-      {/* Logo */}
+    <aside className="w-64 bg-white border-r border-gray-200 flex flex-col h-screen fixed left-0 top-0 z-40">
       <div className="p-8">
         <h1 className="text-2xl font-serif tracking-widest text-alma-text uppercase">Studio Alma</h1>
       </div>
 
-      {/* Etiqueta de ADMINISTRACIÓN (Solo visible para admin) */}
       {userRole === 'admin' && (
         <div className="px-8 pb-3">
           <span className="text-xs font-bold text-gray-400 tracking-wider uppercase">Administración</span>
         </div>
       )}
 
-      {/* Navegación */}
-      <nav className="flex-1 px-4 space-y-1">
+      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
         {links.map((link) => {
           const active = isLinkActive(link.path);
           return (
@@ -78,7 +88,6 @@ const Sidebar = () => {
         })}
       </nav>
 
-      {/* Perfil y Logout */}
       <div className="p-4 border-t border-gray-200">
         <div className="flex items-center gap-3 px-4 py-3 mb-2">
           <div className="w-8 h-8 rounded-full bg-gray-200 flex items-center justify-center text-gray-600 font-bold">

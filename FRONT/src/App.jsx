@@ -7,7 +7,6 @@ import ProfessorDashboard from "./pages/ProfessorDashboard";
 import AdminDashboard from "./pages/AdminDashboard"; 
 import Auth from "./pages/Auth";
 import ResetPass from "./pages/ResetPass";
-import Reservations from "./pages/Reservations";
 
 // 🛡️ PROTECTOR A PRUEBA DE BALAS (y de Spanglish)
 const RoleProtectedRoute = ({ children, allowedRoles }) => {
@@ -30,17 +29,19 @@ const RoleProtectedRoute = ({ children, allowedRoles }) => {
     if (userRole === 'admin') return <Navigate to="/admin" replace />;
     return <Navigate to="/inicio" replace />;
   }
-  
+
   return children;
 };
 
-// Redireccionador inicial
+// 🚦 REDIRECCIÓN INICIAL BASADA EN EL ROL
 const RoleRedirect = () => {
-  const { user } = useAuth();
-  const userRole = (user?.role || user?.rol)?.toLowerCase();
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/auth" replace />;
   
-  if (userRole === "profesor") return <Navigate to="/profesor" replace />;
-  if (userRole === "admin") return <Navigate to="/admin" replace />;
+  const userRole = (user.role || user.rol)?.toLowerCase() || '';
+  if (userRole === 'admin') return <Navigate to="/admin" replace />;
+  if (userRole === 'profesor') return <Navigate to="/profesor" replace />;
   return <Navigate to="/inicio" replace />;
 };
 
@@ -81,15 +82,11 @@ function AppRoutes() {
           } 
         />
         
-        <Route 
-          path="reservar" 
-          element={
-            <RoleProtectedRoute allowedRoles={['alumno']}>
-              <Reservations />
-            </RoleProtectedRoute>
-          } 
-        />
+        {/* 🔥 AQUI QUITAMOS EL COMPONENTE VIEJO DE <Reservations /> */}
+        <Route path="reservar" element={<Navigate to="/inicio?tab=agendar" replace />} />
       </Route>
+
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

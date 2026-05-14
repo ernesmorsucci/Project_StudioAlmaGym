@@ -11,7 +11,9 @@ import {
     getStudentsDirectory,   
     getProfessors,
     getStudentsDashboard,
-    createStudentWithMembership // <-- NUEVA IMPORTACIÓN
+    createStudentWithMembership,
+    requestUpdateCode,
+    verifyUpdate
 } from "../controllers/users.controller.js";
 import { isAuthenticated, checkRole } from "../middlewares/auth.middleware.js";
 
@@ -32,6 +34,12 @@ usersRouter.get("/", isAuthenticated, checkRole(['admin']), getAllUsers);
 usersRouter.post("/", isAuthenticated, checkRole(['admin']), addUser);
 usersRouter.get("/role/:rol", isAuthenticated, checkRole(['admin']), getAllByRole);
 usersRouter.get("/email/:email", isAuthenticated, checkRole(['admin']), getByEmail);
+
+// ==========================================
+// SEGURIDAD DE PERFIL (2FA)
+// ==========================================
+usersRouter.post("/request-update-code", isAuthenticated, requestUpdateCode);
+usersRouter.post("/verify-update", isAuthenticated, verifyUpdate);
 
 // ==========================================
 // RUTAS CON PARÁMETROS

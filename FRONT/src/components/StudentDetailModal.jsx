@@ -63,10 +63,15 @@ const StudentDetailModal = ({ student, onClose }) => {
             allReserves.forEach(reserve => {
                 const reserveDate = new Date(reserve.date);
                 
-                // Si tu backend hace .populate('scheduleId'), tomará el nombre real. 
-                // Si no, mostrará 'Clase Asignada' por defecto para no romper la pantalla.
-                const className = reserve.scheduleId?.name || 'Clase Asignada';
-                const classTime = reserve.scheduleId?.startTime || 'S/H';
+                // 🔥 CORRECCIÓN: Leemos el nombre usando el objeto real o el alias del backend
+                const className = reserve.scheduleId?.name || reserve.class?.name || 'Clase Asignada';
+                
+                // 🔥 CORRECCIÓN: Usamos dateTime (el campo real de tu modelo) y extraemos la hora
+                let classTime = 'S/H';
+                const rawDateTime = reserve.scheduleId?.dateTime || reserve.class?.dateTime;
+                if (rawDateTime) {
+                    classTime = new Date(rawDateTime).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+                }
 
                 const formattedReserve = {
                     id: reserve._id,
@@ -95,7 +100,6 @@ const StudentDetailModal = ({ student, onClose }) => {
             setLoadingReservations(false);
         } catch (error) {
             console.error("Error al cargar reservas:", error);
-            // Si el error es 404 (no tiene reservas), dejamos vacío sin asustar al usuario
             if (error.response && error.response.status === 404) {
                 setReservations({ upcoming: [], past: [] });
             }
@@ -106,10 +110,8 @@ const StudentDetailModal = ({ student, onClose }) => {
     const handleCancelReservation = async (reservationId) => {
         if (window.confirm("¿Estás seguro de que deseas cancelar esta reserva? Se le devolverá el cupo al alumno automáticamente.")) {
             try {
-                // LLAMADA REAL AL BACKEND
                 await api.delete(`/reserves/${reservationId}`);
                 alert("Reserva cancelada exitosamente.");
-                // Refrescamos la lista para moverla al "Historial Pasado" con estado Cancelado
                 fetchReservations(); 
             } catch (error) {
                 console.error("Error al cancelar:", error);
@@ -142,7 +144,6 @@ const StudentDetailModal = ({ student, onClose }) => {
         }
 
         try {
-            // UN SOLO DISPARO: El backend se encarga de crear/actualizar la membresía y el recibo
             await api.post('/payments', {
                 studentId: student.id,
                 planId: paymentData.planId,
@@ -152,7 +153,7 @@ const StudentDetailModal = ({ student, onClose }) => {
 
             alert(`¡Pago exitoso! La membresía se ha actualizado correctamente.`);
             setShowPaymentForm(false);
-            onClose(); // Cerramos para que la tabla principal recargue los datos
+            onClose(); 
         } catch (error) {
             console.error("Error al procesar el pago:", error);
             alert(error.response?.data?.error || "Hubo un error al procesar el pago.");

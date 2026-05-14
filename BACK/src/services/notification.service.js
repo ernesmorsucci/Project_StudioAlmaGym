@@ -1,4 +1,3 @@
-// src/services/notification.service.js
 import NotificationRepository from "../repository/notification.repository.js";
 import EmailService from "./email.service.js";
 import { userService } from "./index.service.js"; 
@@ -27,14 +26,20 @@ export default class NotificationService {
         let successCount = 0;
 
         for (const studentId of studentIds) {
-            const student = await userService.getBy({ _id: studentId });
-            
-            if (student && student.email) {
-                // Modifica tu emailService para que acepte el 'subject'
-                const sent = await emailService.sendNotificationEmail(student.email, subject, message);
-                if (sent) successCount++;
+            // 🔥 LA MAGIA: Ponemos un try-catch INDIVIDUAL para cada envío
+            try {
+                const student = await userService.getBy({ _id: studentId });
+                
+                if (student && student.email) {
+                    // Enviamos los tres datos requeridos
+                    const sent = await emailService.sendNotificationEmail(student.email, subject, message);
+                    if (sent) successCount++;
+                }
+            } catch (error) {
+                // Si este correo falla, solo lo anotamos en la consola, pero el bucle NO SE DETIENE
+                console.error(`Error enviando email al alumno ID ${studentId}:`, error.message);
             }
         }
-        console.log(`Correos enviados: ${successCount}`);
+        console.log(`Proceso finalizado. Correos masivos enviados con éxito: ${successCount} de ${studentIds.length}`);
     }
 }

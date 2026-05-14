@@ -3,7 +3,8 @@ import {
     createReserve, 
     cancelReserve, 
     getStudentReserves, 
-    getAllReserves 
+    getAllReserves,
+    getClassReserves // 🔥 AGREGAMOS ESTO
 } from "../controllers/reserve.controller.js";
 import { isAuthenticated, checkRole } from "../middlewares/auth.middleware.js";
 
@@ -24,5 +25,8 @@ reserveRouter.post("/", isAuthenticated, createReserve);
 
 // 4. Cancelar una reserva existente
 reserveRouter.delete("/:rid", isAuthenticated, cancelReserve);
+
+// 5. Obtener los alumnos anotados en una clase específica
+reserveRouter.get("/class/:cid", isAuthenticated, checkRole(['admin']), getClassReserves);
 
 export default reserveRouter;

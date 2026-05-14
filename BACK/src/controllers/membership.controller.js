@@ -1,4 +1,5 @@
 import { membershipService } from "../services/index.service.js";
+import membershipModel from "../dao/models/membership.model.js"; // 🔥 AGREGAMOS ESTO
 
 // 1. Obtener TODAS las membresías (Ideal para la tabla del Admin)
 export const getAllMemberships = async (req, res) => {
@@ -100,6 +101,7 @@ export const deleteMembership = async (req, res) => {
 
 // 6. Obtener la membresía activa de un alumno
 // Si por algún error existieran dos activas, devuelve la más reciente y loguea una alerta.
+// 6. Obtener la membresía activa de un alumno
 export const getStudentActiveMembership = async (req, res) => {
     try {
         const { uid } = req.params; 
@@ -110,7 +112,8 @@ export const getStudentActiveMembership = async (req, res) => {
             return res.status(403).json({ status: "error", error: "Acceso denegado: No puedes ver membresías de otros alumnos" });
         }
 
-        const activeMemberships = await membershipService.getAll({ studentId: uid, status: 'active' });
+        // 🔥 LA MAGIA: Usamos el modelo directo y populamos el plan
+        const activeMemberships = await membershipModel.find({ studentId: uid, status: 'active' }).populate('planId');
 
         if (!activeMemberships || activeMemberships.length === 0) {
             return res.status(404).json({ status: "error", error: "El alumno no tiene una membresía activa" });

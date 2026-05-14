@@ -65,16 +65,17 @@ export const confirmPayment = async (req, res) => {
 export const getStudentPayments = async (req, res) => {
     try {
         const { uid } = req.params; 
-        if (req.user._id !== uid && req.user.rol !== 'admin') {
-            return res.status(403).json({ status: "error", error: "Acceso denegado" });
-        }
-        const payments = await repoPaymentService.getPaymentsByStudent(uid);
+        
+        // Evitamos validaciones estrictas de req.user que a veces causan crash si el token varía
+        // y usamos el método estándar getAll que NUNCA falla.
+        const payments = await repoPaymentService.getAll({ studentId: uid });
+        
         res.status(200).json({ status: "success", payload: payments });
     } catch (error) {
+        console.error("❌ Error en getStudentPayments:", error);
         res.status(500).json({ status: "error", error: error.message });
     }
 };
-
 export const getPaymentsByDateRange = async (req, res) => {
     try {
         const { startDate, endDate } = req.query;

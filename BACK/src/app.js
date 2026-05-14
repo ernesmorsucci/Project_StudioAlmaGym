@@ -7,7 +7,7 @@ import { createServer } from 'http';
 import { Server } from 'socket.io';  
 import { startCronJobs } from './utils/cron.js';
 
-// 1. IMPORTAMOS TUS ROUTERS
+// 1. IMPORTAMOS ROUTERS
 import authRouter from './routes/auth.routes.js';
 import classRouter from './routes/class.routes.js';
 import dashboardRouter from './routes/dashboard.routes.js';
@@ -18,6 +18,7 @@ import planRouter from './routes/plan.routes.js';
 import recurrentScheduleRouter from './routes/recurrentSchedule.routes.js';
 import reserveRouter from './routes/reserve.routes.js';
 import usersRouter from './routes/users.routes.js';
+
 
 const app = express();
 

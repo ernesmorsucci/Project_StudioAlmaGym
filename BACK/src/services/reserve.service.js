@@ -1,10 +1,14 @@
 import ReserveRepository from "../repository/reserve.repository.js"; 
 import MembershipRepository from "../repository/membership.repository.js";
 import PlanRepository from "../repository/plan.repository.js";
+// 🔥 1. IMPORTAMOS EL REPOSITORIO DE CLASES
+import ClassRepository from "../repository/class.repository.js"; 
 
 const reserveRepo = new ReserveRepository();
 const membershipRepo = new MembershipRepository();
 const planRepo = new PlanRepository();
+// 🔥 2. INICIALIZAMOS EL REPOSITORIO
+const classRepo = new ClassRepository(); 
 
 export default class ReserveService {
     
@@ -27,23 +31,19 @@ export default class ReserveService {
         const today = new Date();
         today.setHours(0, 0, 0, 0);
 
-        // 1. Verificar si la fecha no es en el pasado
         if (reserveDate < today) {
             throw new Error("No puedes reservar clases en fechas pasadas.");
         }
 
-        // 2. Verificar que tenga membresía activa
         const membership = await membershipRepo.getBy({ studentId, status: 'active' });
         if (!membership) {
             throw new Error("El alumno no tiene una membresía activa para reservar.");
         }
 
-        // 3. Verificar que la reserva no supere la fecha de vencimiento del plan
         if (reserveDate > new Date(membership.expireDate)) {
             throw new Error("La fecha de reserva supera el vencimiento de su plan actual.");
         }
 
-        // 4. Verificar disponibilidad de cupos (clases usadas vs permitidas)
         const plan = await planRepo.getBy({ _id: membership.planId });
         if (!plan) throw new Error("Error interno: Plan de membresía no encontrado.");
         
@@ -53,7 +53,6 @@ export default class ReserveService {
             throw new Error("El alumno ya consumió todas las clases de su ciclo actual.");
         }
 
-        // 5. Verificar duplicados (que no haya reservado ya esta misma clase este mismo día)
         const existingReserve = await reserveRepo.getBy({ 
             studentId, 
             scheduleId, 
@@ -64,7 +63,10 @@ export default class ReserveService {
             throw new Error("El alumno ya tiene una reserva activa para este horario y fecha.");
         }
 
-        // 6. ¡TODO OK! Creamos la reserva
+        // 🔥 3. BUSCAMOS LA CLASE PARA VERIFICARLA
+        const classData = await classRepo.getBy({ _id: scheduleId });
+        if (!classData) throw new Error("La clase a la que intentas anotarte no existe.");
+
         const newReserve = await reserveRepo.create({
             studentId,
             scheduleId,
@@ -72,9 +74,14 @@ export default class ReserveService {
             status: 'reserved'
         });
 
-        // 7. Restamos un cupo (sumando 1 al historial de clases usadas)
+        // 4. Restamos un cupo de la membresía del alumno
         await membershipRepo.update(membership._id, {
             usedClassesThisMonth: membership.usedClassesThisMonth + 1
+        });
+
+        // 🔥 5. LA MAGIA: Sumamos 1 al cupo ocupado de la clase
+        await classRepo.update(scheduleId, {
+            occupiedQuota: classData.occupiedQuota + 1
         });
 
         return newReserve;
@@ -91,12 +98,19 @@ export default class ReserveService {
         // 1. Marcamos la reserva como cancelada
         const updatedReserve = await reserveRepo.update(reserveId, { status: 'cancelled' });
 
-        // 2. Buscamos su membresía activa para DEVOLVERLE el cupo
+        // 2. Le devolvemos el cupo a su membresía
         const membership = await membershipRepo.getBy({ studentId: reserve.studentId, status: 'active' });
-        
         if (membership && membership.usedClassesThisMonth > 0) {
             await membershipRepo.update(membership._id, {
                 usedClassesThisMonth: membership.usedClassesThisMonth - 1
+            });
+        }
+
+        // 🔥 3. LA MAGIA INVERSA: Le devolvemos el cupo a la clase
+        const classData = await classRepo.getBy({ _id: reserve.scheduleId });
+        if (classData && classData.occupiedQuota > 0) {
+            await classRepo.update(reserve.scheduleId, {
+                occupiedQuota: classData.occupiedQuota - 1
             });
         }
 

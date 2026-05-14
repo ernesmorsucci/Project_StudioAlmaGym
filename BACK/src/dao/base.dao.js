@@ -16,7 +16,7 @@ export default class BaseDao {
     }
 
     update = (id, doc) => {
-        return this.model.findByIdAndUpdate(id, { $set: doc }, { new: true });
+        return this.model.findByIdAndUpdate(id, { $set: doc }, { returnDocument: 'after' });
     }
 
     delete = (id) => {

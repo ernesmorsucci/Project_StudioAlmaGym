@@ -6,15 +6,15 @@ const NotificationManager = () => {
     // ESTADOS DE DATOS
     const [students, setStudents] = useState([]);
     const [professors, setProfessors] = useState([]);
-    const [schedules, setSchedules] = useState([]);
+    const [classesList, setClassesList] = useState([]); // 🔥 Cambiado para manejar clases reales
     const [loading, setLoading] = useState(true);
 
     // ESTADOS DEL FORMULARIO
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [formData, setFormData] = useState({
-        targetType: 'all_students', // Valor por defecto
-        targetId: '',               // Se usa si es specific_class o specific_user
+        targetType: 'all_students', 
+        targetId: '',               
         subject: '',
         message: ''
     });
@@ -22,15 +22,21 @@ const NotificationManager = () => {
     useEffect(() => {
         const fetchDirectoryData = async () => {
             try {
-                // Traemos todos los datos necesarios para los selectores
-                const [studentsRes, professorsRes, schedulesRes] = await Promise.all([
+                const [studentsRes, professorsRes, classesRes] = await Promise.all([
                     api.get('/users/students-dashboard'),
                     api.get('/users/directory/professors'),
-                    api.get('/schedules')
+                    api.get('/classes') // 🔥 AHORA BUSCAMOS LAS CLASES REALES
                 ]);
+                
                 setStudents(studentsRes.data.payload || []);
                 setProfessors(professorsRes.data.payload || []);
-                setSchedules(schedulesRes.data.payload || []);
+                
+                // 🔥 FILTRO: Solo clases con gente y ordenadas de más recientes a más antiguas
+                const activeClasses = (classesRes.data.payload || [])
+                    .filter(c => c.occupiedQuota > 0)
+                    .sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
+                    
+                setClassesList(activeClasses);
             } catch (error) {
                 console.error("Error al cargar datos para notificaciones:", error);
             } finally {
@@ -40,7 +46,6 @@ const NotificationManager = () => {
         fetchDirectoryData();
     }, []);
 
-    // Limpiar el targetId si cambiamos el tipo de audiencia
     const handleTargetTypeChange = (e) => {
         setFormData({ ...formData, targetType: e.target.value, targetId: '' });
     };
@@ -52,7 +57,6 @@ const NotificationManager = () => {
         try {
             let resolvedIds = [];
             
-            // EL MOTOR DE REGLAS DE NEGOCIO
             if (formData.targetType === 'all_students') {
                 resolvedIds = students.map(s => s.id);
             } else if (formData.targetType === 'expired_students') {
@@ -64,11 +68,26 @@ const NotificationManager = () => {
             } else if (formData.targetType === 'specific_user') {
                 resolvedIds = [formData.targetId];
             } else if (formData.targetType === 'specific_class') {
-                // NOTA: Para una clase específica, necesitaríamos llamar al endpoint de reservas. 
-                // Por ahora lo dejamos bloqueado hasta implementar el módulo de clases.
-                alert("La notificación por clase requiere conexión con el módulo de reservas.");
-                setIsSubmitting(false);
-                return;
+                try {
+                    // Vamos a buscar a los alumnos anotados en esta clase
+                    const reservesRes = await api.get(`/reserves/class/${formData.targetId}`);
+                    const classReserves = reservesRes.data.payload || [];
+
+                    // Extraemos los IDs filtrando a los cancelados
+                    resolvedIds = classReserves
+                        .filter(r => r.status === 'reserved')
+                        .map(r => typeof r.studentId === 'object' ? r.studentId._id : r.studentId);
+
+                    if (resolvedIds.length === 0) {
+                        alert("No hay ningún alumno activo inscrito en esta clase.");
+                        setIsSubmitting(false);
+                        return;
+                    }
+                } catch (error) {
+                    alert("Error al conectar con el módulo de reservas.");
+                    setIsSubmitting(false);
+                    return;
+                }
             }
 
             if (resolvedIds.length === 0) {
@@ -84,7 +103,6 @@ const NotificationManager = () => {
                 resolvedIds: resolvedIds
             };
 
-            // Asegúrate de que la ruta coincida con notification.routes.js (suele ser /notifications)
             await api.post('/notifications', payload); 
             
             setSuccessMessage(`¡Notificación enviada con éxito a ${resolvedIds.length} persona(s)!`);
@@ -120,7 +138,6 @@ const NotificationManager = () => {
             <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm">
                 <form onSubmit={handleSendNotification} className="space-y-6">
                     
-                    {/* 1. SELECCIÓN DE AUDIENCIA */}
                     <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
                         <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
                             <Users className="w-4 h-4 text-alma-olive"/> 1. ¿A quién deseas enviar el mensaje?
@@ -138,20 +155,28 @@ const NotificationManager = () => {
                             <option value="specific_user">Un Alumno o Profesora individual</option>
                         </select>
 
-                        {/* SELECTOR CONDICIONAL: Si elige una clase específica */}
                         {formData.targetType === 'specific_class' && (
                             <div className="animate-fade-in">
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1"><Calendar className="w-3 h-3"/> Selecciona el horario</label>
                                 <select required value={formData.targetId} onChange={(e) => setFormData({...formData, targetId: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-alma-olive bg-white">
-                                    <option value="">Selecciona una clase...</option>
-                                    {schedules.map(sch => (
-                                        <option key={sch._id} value={sch._id}>{sch.name} - {sch.startTime}hs ({sch.classType})</option>
-                                    ))}
+                                    <option value="">Selecciona una clase con alumnos...</option>
+                                    {/* 🔥 FORMATO VISUAL MEJORADO */}
+                                    {classesList.map(c => {
+                                        const dateObj = new Date(c.dateTime);
+                                        let dateStr = dateObj.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
+                                        dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+                                        const timeStr = dateObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+                                        
+                                        return (
+                                            <option key={c._id} value={c._id}>
+                                                {c.name} - {dateStr} a las {timeStr} hs ({c.occupiedQuota} inscriptos)
+                                            </option>
+                                        )
+                                    })}
                                 </select>
                             </div>
                         )}
 
-                        {/* SELECTOR CONDICIONAL: Si elige un usuario específico */}
                         {formData.targetType === 'specific_user' && (
                             <div className="animate-fade-in">
                                 <label className="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1"><User className="w-3 h-3"/> Buscar persona</label>
@@ -168,7 +193,6 @@ const NotificationManager = () => {
                         )}
                     </div>
 
-                    {/* 2. ASUNTO */}
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
                             <AlertCircle className="w-4 h-4 text-alma-olive"/> 2. Asunto del mensaje
@@ -184,7 +208,6 @@ const NotificationManager = () => {
                         />
                     </div>
 
-                    {/* 3. MENSAJE */}
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
                             <MessageSquare className="w-4 h-4 text-alma-olive"/> 3. Contenido de la notificación
@@ -199,7 +222,6 @@ const NotificationManager = () => {
                         />
                     </div>
 
-                    {/* BOTÓN DE ENVÍO */}
                     <div className="pt-4 flex justify-end border-t border-gray-100">
                         <button 
                             type="submit"
