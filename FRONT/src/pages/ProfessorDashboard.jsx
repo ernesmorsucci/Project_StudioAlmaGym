@@ -55,20 +55,24 @@ const ProfessorDashboard = () => {
         .filter((classItem) => getUserId(classItem.professorId)?.toString() === professorId.toString())
         .sort((a, b) => new Date(a.dateTime) - new Date(b.dateTime));
 
-      const reserveEntries = await Promise.all(
-        professorClasses.map(async (classItem) => {
-          try {
-            const res = await api.get(`/reserves/class/${classItem._id}`);
-            return [classItem._id, res.data.payload || []];
-          } catch (error) {
-            return [classItem._id, []];
-          }
-        })
-      );
+      // Obtenemos todas las reservas de las clases que dicta la profesora en UNA sola llamada
+      try {
+        const reservesRes = await api.get(`/reserves/professor/${professorId}`);
+        const reservesMap = reservesRes.data.payload || {};
 
-      setClasses(professorClasses);
-      setStudentsDirectory(studentsRes.data.payload || []);
-      setReservesByClass(Object.fromEntries(reserveEntries));
+        // DEBUG: Mostrar en consola para verificar keys/ids
+        console.log('ProfessorDashboard: clases encontradas', professorClasses.map(c => c._id));
+        console.log('ProfessorDashboard: reservas por clase (keys)', Object.keys(reservesMap));
+
+        setClasses(professorClasses);
+        setStudentsDirectory(studentsRes.data.payload || []);
+        setReservesByClass(reservesMap);
+      } catch (error) {
+        console.error('Error al cargar reservas por profesor:', error?.response?.data || error.message);
+        setClasses(professorClasses);
+        setStudentsDirectory(studentsRes.data.payload || []);
+        setReservesByClass({});
+      }
     } catch (error) {
       console.error('Error al cargar el panel de profesoras:', error);
       showError('No pudimos cargar tus clases. Intentá nuevamente en unos minutos.');
@@ -123,8 +127,24 @@ const ProfessorDashboard = () => {
     return map;
   }, [studentsDirectory]);
 
-  const getClassReserves = (classId) =>
-    (reservesByClass[classId] || []).filter((reserve) => reserve.status !== 'cancelled');
+  // Mostrar solo reservas activas y correspondientes al mismo día de la clase (futuras del mismo día)
+  const getClassReserves = (classId) => {
+    const classItem = classes.find((c) => String(c._id) === String(classId));
+    if (!classItem) return [];
+
+    const reserves = reservesByClass[classId] || [];
+    return reserves.filter((reserve) => {
+      if (!reserve) return false;
+      if (reserve.status === 'cancelled') return false;
+
+      const reserveDate = reserve.date ? new Date(reserve.date) : new Date(reserve.dateTime || reserve.date);
+      const classDate = new Date(classItem.dateTime || classItem.date);
+      if (Number.isNaN(reserveDate.getTime()) || Number.isNaN(classDate.getTime())) return false;
+
+      // Mostrar solo si la reserva es del mismo día de la clase y es futura o igual a ahora
+      return sameDay(reserveDate, classDate) && reserveDate >= now;
+    });
+  };
 
   const getHydratedStudent = (reserve) => {
     const reserveStudent = getReserveStudent(reserve);

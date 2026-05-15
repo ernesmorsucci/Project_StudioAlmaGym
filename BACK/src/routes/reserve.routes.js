@@ -5,6 +5,7 @@ import {
     getStudentReserves, 
     getAllReserves,
     getClassReserves,
+    getReservesByProfessor,
     updateAttendance // 🔥 AGREGAMOS EL NUEVO CONTROLADOR
 } from "../controllers/reserve.controller.js";
 import { isAuthenticated, checkRole } from "../middlewares/auth.middleware.js";
@@ -26,6 +27,9 @@ reserveRouter.delete("/:rid", isAuthenticated, cancelReserve);
 // 5. Obtener los alumnos anotados en una clase (Admin y Profesoras)
 // 🔥 CORRECCIÓN: Le dimos permiso a 'profesor' para ver su lista
 reserveRouter.get("/class/:cid", isAuthenticated, checkRole(['admin', 'profesor']), getClassReserves);
+
+// Obtener reservas agrupadas por clase para un profesor (Admin y Profesor)
+reserveRouter.get("/professor/:pid", isAuthenticated, checkRole(['admin', 'profesor']), getReservesByProfessor);
 
 // 6. Tomar Asistencia (Admin y Profesoras)
 // 🔥 NUEVA RUTA: Recibe el ID de la reserva y actualiza su estado

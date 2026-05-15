@@ -22,8 +22,8 @@ export default class ReserveRepository extends GenericRepository {
     }
 
     // Modificado: Ahora trae los datos del alumno (nombre, email) para la lista de asistencia
-    findByClass = (classId) => {
-        return this.dao.model.find({ classId }).populate('studentId', 'name email phone');
+    findBySchedule = (scheduleId) => {
+        return this.dao.model.find({ scheduleId }).populate('studentId', 'name email phone');
     }
 
     // NUEVO: Cuenta las inasistencias en un periodo para la política de recuperación
@@ -40,17 +40,17 @@ export default class ReserveRepository extends GenericRepository {
         return this.dao.updateRaw(id, { $set: { assistance: assistanceStatus } });
     }
 
-    getNextInWaitingList = (classId) => {
-        return this.dao.getBy({ classId: classId, status: 'pending', waitingPosition: 1 });
+    getNextInWaitingList = (scheduleId) => {
+        return this.dao.getBy({ scheduleId: scheduleId, status: 'pending', waitingPosition: 1 });
     }
 
     confirmWaitingReservation = (id) => {
         return this.dao.updateRaw(id, { $set: { status: 'confirmed', waitingPosition: 0 } });
     }
 
-    shiftWaitingList = (classId, fromPosition = 0) => {
+    shiftWaitingList = (scheduleId, fromPosition = 0) => {
         return this.dao.updateMany(
-            { classId: classId, status: 'pending', waitingPosition: { $gt: fromPosition } },
+            { scheduleId: scheduleId, status: 'pending', waitingPosition: { $gt: fromPosition } },
             { $inc: { waitingPosition: -1 } }
         );
     }

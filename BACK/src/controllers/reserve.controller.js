@@ -1,6 +1,36 @@
 import { reserveService } from "../services/index.service.js";
-// 🔥 IMPORTAMOS EL MODELO DIRECTAMENTE PARA PODER POPULAR (Traer datos anidados)
+// 🔥 IMPORTAMOS LOS MODELOS DIRECTAMENTE PARA PODER POPULAR (Traer datos anidados)
 import reserveModel from "../dao/models/reserve.model.js";
+import classModel from "../dao/models/class.model.js";
+
+// Nuevo: Obtener todas las reservas de las clases que dicta un profesor
+export const getReservesByProfessor = async (req, res) => {
+    try {
+        const { pid } = req.params;
+
+        console.log(`[getReservesByProfessor] pid=${pid} requested by=${req.user?._id || 'anon'}`);
+
+        const classes = await classModel.find({ professorId: pid }).select('_id');
+        const classIds = classes.map(c => c._id);
+
+        const reserves = await reserveModel.find({ scheduleId: { $in: classIds } })
+            .populate('studentId', 'name email phone')
+            .populate({ path: 'scheduleId', populate: { path: 'professorId', select: 'name' } })
+            .sort({ date: 1 });
+
+        const grouped = {};
+        reserves.forEach(r => {
+            const key = (r.scheduleId && r.scheduleId._id) ? r.scheduleId._id.toString() : r.scheduleId.toString();
+            if (!grouped[key]) grouped[key] = [];
+            grouped[key].push(r);
+        });
+
+        res.status(200).json({ status: 'success', payload: grouped });
+    } catch (error) {
+        console.error('Error en getReservesByProfessor:', error.message || error);
+        res.status(500).json({ status: 'error', error: 'Error interno del servidor.' });
+    }
+};
 
 // 1. Crear una reserva
 export const createReserve = async (req, res) => {
@@ -89,14 +119,36 @@ export const getAllReserves = async (req, res) => {
 export const getClassReserves = async (req, res) => {
     try {
         const { cid } = req.params;
-        
-        // Buscamos todas las reservas que coincidan con el scheduleId (clase)
-        const reserves = await reserveService.getAll({ scheduleId: cid });
+
+        // Logueamos el request para depuración: quién pide y qué clase
+        console.log(`[getClassReserves] user=${req.user?._id || 'anon'} rol=${req.user?.rol || 'unknown'} cid=${cid}`);
+
+        // Buscamos reservas por scheduleId o por el legacy classId y poblamos student y clase
+        const reserves = await reserveModel.find({
+            $or: [
+                { scheduleId: cid },
+                { classId: cid }
+            ]
+        })
+        .populate('studentId', 'name email phone')
+        .populate({ path: 'scheduleId', populate: { path: 'professorId', select: 'name' } })
+        .sort({ date: 1 });
+
+        // DEBUG ADICIONAL: Conteo total de reservas y ejemplo de documento
+        try {
+            const totalReserves = await reserveModel.countDocuments();
+            const sample = await reserveModel.findOne().lean();
+            console.log(`[getClassReserves] totalReserves=${totalReserves} sample=${sample ? JSON.stringify(sample) : 'none'}`);
+        } catch (dbgErr) {
+            console.log('[getClassReserves] error al obtener sample de reservas:', dbgErr.message);
+        }
+
+        console.log(`[getClassReserves] encontrados=${reserves.length} reservas para clase ${cid}`);
 
         res.status(200).json({ status: "success", payload: reserves });
     } catch (error) {
-        console.error("Error al obtener reservas de la clase:", error);
-        res.status(500).json({ status: "error", error: "Error interno del servidor." });
+        console.error("Error al obtener reservas de la clase:", error?.message || error);
+        res.status(500).json({ status: "error", error: error?.message || "Error interno del servidor." });
     }
 };
 // 🔥 NUEVO: Función para que la profesora pase asistencia
