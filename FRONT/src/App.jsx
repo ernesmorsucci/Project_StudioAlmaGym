@@ -7,7 +7,7 @@ import ProfessorDashboard from "./pages/ProfessorDashboard";
 import AdminDashboard from "./pages/AdminDashboard"; 
 import Auth from "./pages/Auth";
 import ResetPass from "./pages/ResetPass";
-
+import UserProfile from "./components/UserProfile";
 // 🛡️ PROTECTOR A PRUEBA DE BALAS (y de Spanglish)
 const RoleProtectedRoute = ({ children, allowedRoles }) => {
   const { user, loading } = useAuth();
@@ -54,7 +54,14 @@ function AppRoutes() {
       
       <Route path="/" element={<MainLayout />}>
         <Route index element={<RoleRedirect />} />
-        
+        <Route 
+          path="perfil" 
+          element={
+            <RoleProtectedRoute allowedRoles={['alumno', 'profesor', 'admin']}>
+              <UserProfile />
+            </RoleProtectedRoute>
+          } 
+        />
         <Route 
           path="inicio" 
           element={

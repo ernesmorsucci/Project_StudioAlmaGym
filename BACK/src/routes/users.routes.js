@@ -13,7 +13,9 @@ import {
     getStudentsDashboard,
     createStudentWithMembership,
     requestUpdateCode,
-    verifyUpdate
+    verifyUpdate,
+    sendPhoneCode,
+    verifyPhoneCode
 } from "../controllers/users.controller.js";
 import { isAuthenticated, checkRole } from "../middlewares/auth.middleware.js";
 
@@ -25,7 +27,7 @@ const usersRouter = Router();
 usersRouter.get("/directory/professors", isAuthenticated, checkRole(['admin']), getProfessorsDirectory);
 usersRouter.get("/directory/students", isAuthenticated, checkRole(['profesor', 'admin']), getStudentsDirectory);
 usersRouter.get("/professors", isAuthenticated, checkRole(['admin']), getProfessors); 
-usersRouter.get("/students-dashboard", isAuthenticated, checkRole(['admin']), getStudentsDashboard);
+usersRouter.get("/students-dashboard", isAuthenticated, checkRole(['admin', 'profesor']), getStudentsDashboard);
 
 //ruta para crear alumno + membresia (usada en el dashboard de admin)
 usersRouter.post("/student-with-membership", isAuthenticated, checkRole(['admin']), createStudentWithMembership);
@@ -40,6 +42,8 @@ usersRouter.get("/email/:email", isAuthenticated, checkRole(['admin']), getByEma
 // ==========================================
 usersRouter.post("/request-update-code", isAuthenticated, requestUpdateCode);
 usersRouter.post("/verify-update", isAuthenticated, verifyUpdate);
+usersRouter.post("/send-phone-code", isAuthenticated, sendPhoneCode);
+usersRouter.post("/verify-phone-code", isAuthenticated, verifyPhoneCode);
 
 // ==========================================
 // RUTAS CON PARÁMETROS

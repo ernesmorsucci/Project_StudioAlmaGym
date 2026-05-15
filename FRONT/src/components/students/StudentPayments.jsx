@@ -14,15 +14,15 @@ const StudentPayments = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            
+
             // 1. Buscamos los pagos
             const paymentsRes = await api.get(`/payments/student/${user._id}`).catch(() => ({ data: { payload: [] } }));
-            
+
             // 🔥 2. EL ARREGLO: Cambiamos /user/ por /student/ para que coincida con tu backend
             const membershipRes = await api.get(`/memberships/student/${user._id}`).catch(() => ({ data: { payload: null } }));
 
             const sortedPayments = (paymentsRes.data.payload || []).sort((a, b) => new Date(b.date) - new Date(a.date));
-            
+
             setPayments(sortedPayments);
             setMembership(membershipRes.data.payload);
         } catch (error) {
@@ -50,7 +50,7 @@ const StudentPayments = () => {
 
     // Cálculos para la vista
     const lastPayment = payments.length > 0 ? payments[0] : null;
-    
+
     // Formateadores de fecha (Ej: "10 jul")
     const formatDayMonth = (dateString) => {
         if (!dateString) return '--';
@@ -71,12 +71,12 @@ const StudentPayments = () => {
 
             {/* TARJETAS SUPERIORES */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                
+
                 {/* Tarjeta: Próximo Vencimiento */}
                 <div className="bg-white rounded-3xl border border-alma-olive/30 p-8 shadow-sm relative overflow-hidden">
                     <div className="absolute top-0 left-0 w-1 h-full bg-alma-olive"></div>
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Próximo Vencimiento</h4>
-                    
+
                     <div className="mb-6">
                         <span className="text-5xl font-serif text-alma-text block mb-1">
                             {membership ? formatDayMonth(membership.expireDate) : 'Sin plan'}
@@ -87,8 +87,8 @@ const StudentPayments = () => {
                             </span>
                         )}
                     </div>
-                    
-                    <button 
+
+                    <button
                         onClick={() => setShowTransferModal(true)}
                         className="bg-alma-olive text-white px-6 py-2.5 rounded-xl text-sm font-bold shadow-md hover:bg-opacity-90 transition-all"
                     >
@@ -99,7 +99,7 @@ const StudentPayments = () => {
                 {/* Tarjeta: Último Pago */}
                 <div className="bg-white rounded-3xl border border-gray-200 p-8 shadow-sm">
                     <h4 className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-2">Último Pago</h4>
-                    
+
                     {lastPayment ? (
                         <div>
                             <span className="text-5xl font-serif text-alma-text block mb-1">
@@ -120,7 +120,7 @@ const StudentPayments = () => {
             {/* TABLA: HISTORIAL DE PAGOS */}
             <div className="bg-white rounded-[1.5rem] border border-gray-200 p-8 shadow-sm">
                 <h3 className="text-xl font-bold text-gray-800 mb-6">Historial de pagos</h3>
-                
+
                 {payments.length === 0 ? (
                     <p className="text-sm text-gray-400 italic py-4">Aún no tienes historial de pagos registrado.</p>
                 ) : (
@@ -159,18 +159,18 @@ const StudentPayments = () => {
                     <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl overflow-hidden border border-gray-100">
                         <div className="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
                             <h3 className="font-serif text-2xl text-alma-text flex items-center gap-2">
-                                <Landmark className="w-6 h-6 text-alma-olive"/> Datos de Pago
+                                <Landmark className="w-6 h-6 text-alma-olive" /> Datos de Pago
                             </h3>
                             <button onClick={() => setShowTransferModal(false)} className="text-gray-400 hover:text-red-500 transition-colors">
                                 <X className="w-6 h-6" />
                             </button>
                         </div>
-                        
+
                         <div className="p-6 space-y-6">
                             <p className="text-gray-600 text-sm">
                                 Para renovar tu membresía, realiza una transferencia a la siguiente cuenta bancaria.
                             </p>
-                            
+
                             <div className="bg-gray-50 p-4 rounded-2xl border border-gray-200 space-y-3 relative">
                                 <div>
                                     <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Titular</span>
@@ -179,8 +179,10 @@ const StudentPayments = () => {
                                 <div>
                                     <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">CBU / CVU</span>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-gray-800 font-mono tracking-wider text-lg">0000003100000000000000</span>
-                                        <button onClick={() => copyToClipboard('0000003100000000000000')} className="p-2 text-alma-olive hover:bg-alma-olive/10 rounded-lg transition-colors">
+                                        <span className="text-gray-800 font-mono tracking-wider text-lg">
+                                            {import.meta.env.VITE_BANK_CBU || "CBU no configurado"}
+                                        </span>
+                                        <button onClick={() => copyToClipboard(import.meta.env.VITE_BANK_CBU)} className="...">
                                             <Copy className="w-4 h-4" />
                                         </button>
                                     </div>
@@ -188,13 +190,15 @@ const StudentPayments = () => {
                                 <div>
                                     <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-widest">Alias</span>
                                     <div className="flex items-center justify-between">
-                                        <span className="text-gray-800 font-bold text-lg">STUDIO.ALMA.GYM</span>
-                                        <button onClick={() => copyToClipboard('STUDIO.ALMA.GYM')} className="p-2 text-alma-olive hover:bg-alma-olive/10 rounded-lg transition-colors">
+                                        <span className="text-gray-800 font-bold text-lg">
+                                            {import.meta.env.VITE_BANK_ALIAS || "Alias no configurado"}
+                                        </span>
+                                        <button onClick={() => copyToClipboard(import.meta.env.VITE_BANK_ALIAS)} className="...">
                                             <Copy className="w-4 h-4" />
                                         </button>
                                     </div>
                                 </div>
-                                
+
                                 {copied && (
                                     <div className="absolute top-2 right-2 bg-green-500 text-white text-[10px] px-2 py-1 rounded shadow-sm animate-fade-in">
                                         ¡Copiado!
@@ -206,7 +210,7 @@ const StudentPayments = () => {
                                 <Smartphone className="w-6 h-6 text-alma-olive shrink-0 mt-1" />
                                 <div className="text-sm text-gray-700">
                                     <p className="font-bold mb-1">Paso Final</p>
-                                    <p>Una vez realizada la transferencia, envíanos el comprobante por WhatsApp al <strong>+54 9 261 000 0000</strong> indicando tu nombre completo.</p>
+                                    <p>Una vez realizada la transferencia, envíanos el comprobante por WhatsApp al <strong>{import.meta.env.VITE_WHATSAPP_DISPLAY}</strong> indicando tu nombre completo.</p>
                                 </div>
                             </div>
                         </div>

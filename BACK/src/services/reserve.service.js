@@ -27,6 +27,11 @@ export default class ReserveService {
         return await reserveRepo.getBy(filter); 
     }
 
+    // 🔥 NUEVO: Puente para actualizar datos de la reserva
+    async updateReserveStatus(reserveId, newStatus) {
+        // Aquí le decimos al repositorio que SOLO actualice el campo "status"
+        return await reserveRepo.update(reserveId, { status: newStatus });
+    }
    // ==========================================
     // LÓGICA DE NEGOCIO: CREAR RESERVA (CON WAITLIST)
     // ==========================================

@@ -25,10 +25,21 @@ const schema = new mongoose.Schema({
         type: Array,
         default: []
     },
-    // 👇 NUEVOS CAMPOS PARA LA FICHA DEL ALUMNO 👇
-    phone: {
+    phone: { 
         type: String,
-        default: ''
+        default: "" 
+    },
+    isPhoneVerified: {
+        type: Boolean,
+        default: false 
+    },
+    phoneVerificationCode: {
+        type: String, 
+        default: null 
+    },
+    phoneVerificationExpires: { 
+        type: Date, 
+        default: null 
     },
     emergencyContact: {
         type: String,

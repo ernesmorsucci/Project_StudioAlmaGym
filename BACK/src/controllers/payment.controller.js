@@ -65,20 +65,18 @@ export const confirmPayment = async (req, res) => {
 export const getStudentPayments = async (req, res) => {
     try {
         const { uid } = req.params; 
-        
-        const allPayments = await repoPaymentService.getAll();
-        
-        // 🔥 LA MAGIA: Extraemos el ID correctamente, sin importar si Mongoose 
-        // nos trajo el objeto completo poblado o solo el ID en texto.
-        const studentPayments = allPayments.filter(payment => {
-            if (!payment.studentId) return false;
 
-            const paymentStudentId = payment.studentId._id 
-                ? payment.studentId._id.toString() 
-                : payment.studentId.toString();
-
-            return paymentStudentId === uid.toString();
-        });
+        // 🛡️ SEGURIDAD: Verificamos que el alumno pida SUS propios pagos
+        const userId = req.user.id || req.user._id; 
+        if (req.user.rol === 'alumno' && userId.toString() !== uid.toString()) {
+            return res.status(403).json({ 
+                status: "error", 
+                error: "Acceso denegado: No puedes ver el historial de otra persona." 
+            });
+        }
+        
+        // 🚀 RENDIMIENTO: Ahora el servicio sí escuchará este filtro
+        const studentPayments = await repoPaymentService.getAll({ studentId: uid });
         
         res.status(200).json({ status: "success", payload: studentPayments });
     } catch (error) {

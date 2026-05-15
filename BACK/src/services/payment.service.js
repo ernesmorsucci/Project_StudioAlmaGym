@@ -8,9 +8,12 @@ const planRepo = new PlanRepository();
 
 export default class PaymentService {
     
-    // 🔥 AHORA LE ENSEÑAMOS A RECIBIR FILTROS (filter = {})
+    // 🔥 Asegúrate de que tenga (filter = {}) y se lo pase a los métodos del repo
+    // 🔥 SOLUCIÓN: Agregamos (filter = {}) para que acepte los parámetros
     async getAll(filter = {}) { 
-        return paymentRepo.get ? await paymentRepo.get(filter) : await paymentRepo.getAll(filter); 
+        return paymentRepo.get 
+            ? await paymentRepo.get(filter) 
+            : await paymentRepo.getAll(filter); 
     }
     
     async getBy(filter) { 

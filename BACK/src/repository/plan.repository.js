@@ -8,6 +8,7 @@ export default class PlanRepository extends GenericRepository {
         super(dao);
     }
 
+    
     /**
      * Obtiene solo los planes que están actualmente disponibles (activos).
      * Ideal para mostrar en el frontend cuando el alumno quiere ver precios.

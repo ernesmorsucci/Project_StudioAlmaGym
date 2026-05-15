@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Loader } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { showError, showSuccess } from '../utils/alerts';
+import { showError, showSuccess, showConfirm } from '../utils/alerts';
 import ProfessorClassesTab from '../components/professor/ProfessorClassesTab';
 import ProfessorHomeTab from '../components/professor/ProfessorHomeTab';
 import ProfessorHoursTab from '../components/professor/ProfessorHoursTab';
@@ -158,14 +158,28 @@ const ProfessorDashboard = () => {
   });
 
   const handleMarkAttendance = async (reserveId, status) => {
-    setUpdatingReserve(`${reserveId}-${status}`);
+    // 🔥 NUESTRA LÓGICA: Preguntar antes de marcar Ausente
+    if (status === 'absent') {
+        const isConfirmed = await showConfirm(
+            "¿Marcar como Ausente?",
+            "Esta acción le descontará el crédito a la alumna y no se puede deshacer."
+        );
+        if (!isConfirmed) return; // Si la profe cancela, no hacemos nada
+    }
+
     try {
-      await markReserveStatus(reserveId, status);
+      setUpdatingReserve(`${reserveId}-${status}`);
+      
+      // Llama a la función que dejó tu compañero
+      await markReserveStatus(reserveId, status); 
+      
+      showSuccess(status === 'attended' ? '¡Asistencia registrada!' : 'Ausencia registrada');
+      
+      // Esto recarga los datos para que el botón cambie de color
       await loadData();
-      showSuccess(status === 'attended' ? 'Asistencia registrada.' : 'Ausencia registrada.');
     } catch (error) {
-      console.error('Error al registrar asistencia:', error);
-      showError(error.response?.data?.error || 'No se pudo registrar la asistencia.');
+      console.error(error);
+      showError('Error al actualizar la asistencia');
     } finally {
       setUpdatingReserve(null);
     }

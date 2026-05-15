@@ -87,21 +87,6 @@ export const normalizeProfessorTab = (tab) => {
 };
 
 export const markReserveStatus = async (reserveId, status) => {
-  const payload = { status };
-  const attempts = [
-    () => api.patch(`/reserves/${reserveId}/status`, payload),
-    () => api.patch(`/reserves/${reserveId}`, payload),
-    () => api.put(`/reserves/${reserveId}/status`, payload),
-  ];
-
-  let lastError;
-  for (const attempt of attempts) {
-    try {
-      return await attempt();
-    } catch (error) {
-      lastError = error;
-      if (![404, 405].includes(error.response?.status)) break;
-    }
-  }
-  throw lastError;
+  // Disparamos directamente a la ruta que armamos en el Backend
+  return await api.patch(`/reserves/${reserveId}/attendance`, { status });
 };

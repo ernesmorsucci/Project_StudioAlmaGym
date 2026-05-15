@@ -99,3 +99,25 @@ export const getClassReserves = async (req, res) => {
         res.status(500).json({ status: "error", error: "Error interno del servidor." });
     }
 };
+// 🔥 NUEVO: Función para que la profesora pase asistencia
+export const updateAttendance = async (req, res) => {
+    try {
+        const { rid } = req.params; 
+        const { status } = req.body; // Aquí llega 'attended' o 'absent' desde tu botón
+
+        if (!['attended', 'absent'].includes(status)) {
+            return res.status(400).json({ status: "error", error: "Estado no válido." });
+        }
+
+        // 🔥 AHORA SÍ: Llamamos a la función que cambia el status explícitamente
+        const result = await reserveService.updateReserveStatus(rid, status);
+        
+        res.status(200).json({ 
+            status: "success", 
+            message: `Asistencia guardada: ${status === 'attended' ? 'Presente' : 'Ausente'}`,
+            payload: result 
+        });
+    } catch (error) {
+        res.status(500).json({ status: "error", error: error.message });
+    }
+};

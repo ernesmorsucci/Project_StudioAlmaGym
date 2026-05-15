@@ -116,7 +116,12 @@ export const updateUser = async (req, res) => {
         } else {
             delete updateData.password;
         }
-
+        if (updateData.phone) {
+            updateData.isPhoneVerified = false; 
+        } else {
+            // Evitamos que alguien mande { isPhoneVerified: true } por Postman
+            delete updateData.isPhoneVerified; 
+        }
         const result = await userService.update(req.params.uid, updateData);
         res.json({ status: 'success', payload: result });
     } catch (error) {
@@ -211,61 +216,84 @@ export const requestUpdateCode = async (req, res) => {
 
 export const verifyUpdate = async (req, res) => {
     try {
-        const { code, updates } = req.body;
         const userId = req.user._id || req.user.id;
+        const { code, updates } = req.body;
 
-        const user = await userService.getById(userId);
-        const cleanCode = code ? code.toString().trim() : '';
+        const user = await usersService.getUserById(userId);
 
-        // 1. Validaciones de seguridad
-        if (!user || !user.resetCode) {
-            return res.status(400).json({ status: 'error', error: 'No hay ningún código pendiente para este usuario.' });
+        // Validaciones de código (las que ya tenés para email/pass)
+        if (user.updateCode !== code) return res.status(400).json({ status: "error", error: "Código incorrecto" });
+        if (new Date() > user.updateCodeExpires) return res.status(400).json({ status: "error", error: "Código expirado" });
+
+        // 🔥 LA CLAVE: Si el usuario está verificando un cambio que incluye teléfono
+        if (updates.phone) {
+            updates.isPhoneVerified = true; 
         }
 
-        if (user.resetCode !== cleanCode) {
-            return res.status(400).json({ status: 'error', error: 'El código ingresado es incorrecto.' });
-        }
+        const updatedUser = await usersService.update(userId, updates);
 
-        // Comparamos el tiempo exacto en milisegundos para evitar fallos de zona horaria
-        const now = new Date().getTime();
-        const expires = new Date(user.resetCodeExpires).getTime();
-        if (now > expires) {
-            return res.status(400).json({ status: 'error', error: 'El código ha expirado. Solicita uno nuevo.' });
-        }
+        // Limpiamos códigos
+        await usersService.update(userId, { updateCode: null, updateCodeExpires: null });
 
-        // 2. Preparación de los datos a guardar
-        const finalUpdates = { ...updates, resetCode: null, resetCodeExpires: null };
+        res.status(200).json({ status: "success", payload: updatedUser });
+    } catch (error) {
+        res.status(500).json({ status: "error", error: error.message });
+    }
+};
 
-        if (finalUpdates.password && finalUpdates.password.trim() !== '') {
-            finalUpdates.password = await createHash(finalUpdates.password);
-        } else {
-            delete finalUpdates.password; // Evita guardar contraseñas vacías
-        }
+// 🔥 1. Enviar el código (Simulado)
+export const sendPhoneCode = async (req, res) => {
+    try {
+        const userId = req.user._id || req.user.id;
+        const { phone } = req.body;
+        
+        if (!phone) return res.status(400).json({ status: "error", error: "El teléfono es requerido" });
 
-        // 🔥 LA SOLUCIÓN: Limpiamos cualquier campo "undefined" que el frontend haya enviado 
-        // y que esté haciendo explotar a Mongoose en silencio.
-        Object.keys(finalUpdates).forEach(key => {
-            if (finalUpdates[key] === undefined) {
-                delete finalUpdates[key];
-            }
+        // Generamos un código de 6 dígitos al azar
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        // Le damos 15 minutos de vida al código
+        const expires = new Date(Date.now() + 15 * 60000); 
+
+        // Guardamos el número y el código en la base de datos
+        await userService.update(userId, { 
+            phone: phone, 
+            phoneVerificationCode: code, 
+            phoneVerificationExpires: expires 
         });
 
-        // 3. Guardado en Base de Datos
-        const updatedUser = await userService.update(userId, finalUpdates);
+        // 📱 LA SIMULACIÓN: Imprimimos el SMS en tu consola de VS Code
+        console.log(`\n========================================`);
+        console.log(`📱 SMS SIMULADO PARA: ${phone}`);
+        console.log(`🔑 CÓDIGO DE VERIFICACIÓN DE STUDIO ALMA: ${code}`);
+        console.log(`========================================\n`);
 
-        // Si el DAO no devuelve el usuario actualizado, lanzamos un error claro
-        if (!updatedUser) {
-            throw new Error("No se pudo actualizar el documento en MongoDB.");
-        }
-
-        const safeUser = updatedUser.toObject ? updatedUser.toObject() : updatedUser;
-        delete safeUser.password;
-
-        res.status(200).json({ status: 'success', payload: safeUser });
+        res.status(200).json({ status: "success", message: "Código enviado" });
     } catch (error) {
-        console.error("❌ Error en verifyUpdate:", error);
-        // 🔥 Ahora obligamos al servidor a mandar el error EXACTO al frontend
-        res.status(400).json({ status: 'error', error: `Fallo interno: ${error.message}` });
+        res.status(500).json({ status: "error", error: error.message });
+    }
+};
+
+// 🔥 2. Verificar si la alumna escribió el código correcto
+export const verifyPhoneCode = async (req, res) => {
+    try {
+        const userId = req.user._id || req.user.id;
+        const { code } = req.body;
+
+        const user = await userService.getById(userId);
+
+        if (!user.phoneVerificationCode) return res.status(400).json({ status: "error", error: "No se solicitó ningún código" });
+        if (user.phoneVerificationCode !== code) return res.status(400).json({ status: "error", error: "Código incorrecto" });
+        if (new Date() > user.phoneVerificationExpires) return res.status(400).json({ status: "error", error: "El código ha expirado" });
+
+        // Si todo está bien, verificamos a la alumna y borramos el código secreto
+        user.isPhoneVerified = true;
+        user.phoneVerificationCode = null;
+        user.phoneVerificationExpires = null;
+        await user.save();
+
+        res.status(200).json({ status: "success", message: "Teléfono verificado correctamente" });
+    } catch (error) {
+        res.status(500).json({ status: "error", error: error.message });
     }
 };
 
@@ -283,5 +311,7 @@ export default {
     getStudentsDirectory,
     getProfessors,
     requestUpdateCode,
-    verifyUpdate
+    verifyUpdate,
+    sendPhoneCode,
+    verifyPhoneCode
 };

@@ -8,7 +8,7 @@ import StudentReservations from '../components/students/StudentReservations';
 import StudentBooking from '../components/students/StudentBooking';
 import StudentPayments from '../components/students/StudentPayments';
 import StudentNotifications from '../components/students/StudentNotifications';
-import StudentProfile from '../components/students/StudentProfile';
+
 
 const StudentDashboard = () => {
     const [searchParams] = useSearchParams();

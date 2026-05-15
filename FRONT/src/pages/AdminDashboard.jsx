@@ -218,12 +218,26 @@ const AdminDashboard = () => {
   };
 
   const getProfessorStats = (professorId) => {
-    const professorClasses = monthlyClasses.filter(classItem => getClassProfessorId(classItem)?.toString() === professorId?.toString());
-    const totalHours = professorClasses.reduce((acc, classItem) => acc + getClassDurationHours(classItem), 0);
+    const now = new Date(); // Obtenemos la fecha y hora actual
+
+    // 1. Buscamos todas las clases del mes asignadas a este profesor
+    const professorClasses = monthlyClasses.filter(classItem => 
+      getClassProfessorId(classItem)?.toString() === professorId?.toString()
+    );
+
+    // 2. Filtramos SOLO las clases cuya fecha ya pasó (o está pasando)
+    const workedClasses = professorClasses.filter(classItem => 
+      new Date(classItem.dateTime) <= now
+    );
+
+    // 3. Sumamos solo las horas de las clases trabajadas
+    const totalHours = workedClasses.reduce((acc, classItem) => 
+      acc + getClassDurationHours(classItem), 0
+    );
 
     return {
-      assignedClasses: professorClasses.length,
-      workedHours: totalHours
+      assignedClasses: professorClasses.length, // Se muestran todas las del mes
+      workedHours: totalHours                   // Solo suma las que ya ocurrieron
     };
   };
 
@@ -340,7 +354,7 @@ const AdminDashboard = () => {
                         <div className="w-full bg-gray-100 rounded-full h-1.5 max-w-[60px] hidden sm:block">
                           <div
                             className="bg-alma-olive h-1.5 rounded-full"
-                            style={{ width: `${((schedule.registeredCount || 0) / schedule.maxQuota) * 100}%` }}
+                            style={{ width: `${schedule.maxQuota > 0 ? ((schedule.registeredCount || 0) / schedule.maxQuota) * 100 : 0}%` }}
                           ></div>
                         </div>
 

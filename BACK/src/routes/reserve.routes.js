@@ -4,15 +4,12 @@ import {
     cancelReserve, 
     getStudentReserves, 
     getAllReserves,
-    getClassReserves // 🔥 AGREGAMOS ESTO
+    getClassReserves,
+    updateAttendance // 🔥 AGREGAMOS EL NUEVO CONTROLADOR
 } from "../controllers/reserve.controller.js";
 import { isAuthenticated, checkRole } from "../middlewares/auth.middleware.js";
 
 const reserveRouter = Router();
-
-/**
- * RUTAS DE RESERVAS Y CLASES
- */
 
 // 1. Obtener todas las reservas de todos los alumnos (Solo Admin)
 reserveRouter.get("/", isAuthenticated, checkRole(['admin']), getAllReserves);
@@ -26,7 +23,12 @@ reserveRouter.post("/", isAuthenticated, createReserve);
 // 4. Cancelar una reserva existente
 reserveRouter.delete("/:rid", isAuthenticated, cancelReserve);
 
-// 5. Obtener los alumnos anotados en una clase específica
-reserveRouter.get("/class/:cid", isAuthenticated, checkRole(['admin']), getClassReserves);
+// 5. Obtener los alumnos anotados en una clase (Admin y Profesoras)
+// 🔥 CORRECCIÓN: Le dimos permiso a 'profesor' para ver su lista
+reserveRouter.get("/class/:cid", isAuthenticated, checkRole(['admin', 'profesor']), getClassReserves);
+
+// 6. Tomar Asistencia (Admin y Profesoras)
+// 🔥 NUEVA RUTA: Recibe el ID de la reserva y actualiza su estado
+reserveRouter.patch("/:rid/attendance", isAuthenticated, checkRole(['admin', 'profesor']), updateAttendance);
 
 export default reserveRouter;

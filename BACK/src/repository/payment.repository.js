@@ -8,9 +8,9 @@ export default class PaymentRepository extends GenericRepository {
         super(dao);
     }
 
-    // Sobrescribimos el getAll genérico para traer los datos cruzados
-    getAll = () => {
-        return this.dao.model.find()
+    // 🔥 AHORA SÍ: Recibe el filtro y se lo pasa a Mongoose
+    getAll = (filter = {}) => {
+        return this.dao.model.find(filter)
             .populate('studentId', 'name email')
             .populate('planId', 'name');
     }

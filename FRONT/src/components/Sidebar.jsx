@@ -15,14 +15,13 @@ const Sidebar = () => {
 
   const userRole = (user?.role || user?.rol)?.toLowerCase();
 
-  // 1. Menú de Alumnos (¡AQUÍ ESTÁN LAS NUEVAS PESTAÑAS!)
+  // 1. Menú de Alumnos (Sin el perfil duplicado)
   const studentLinks = [
     { path: '/inicio', label: 'Inicio', icon: <Home className="w-5 h-5" /> },
     { path: '/inicio?tab=agendar', label: 'Reservar clase', icon: <Calendar className="w-5 h-5" /> },
     { path: '/inicio?tab=mis-reservas', label: 'Mis Reservas', icon: <BookmarkCheck className="w-5 h-5" /> },
     { path: '/inicio?tab=pagos', label: 'Pagos', icon: <CreditCard className="w-5 h-5" /> },
     { path: '/inicio?tab=notificaciones', label: 'Notificaciones', icon: <Bell className="w-5 h-5" /> },
-    { path: '/inicio?tab=mi-perfil', label: 'Perfil', icon: <UserCircle className="w-5 h-5" /> },
   ];
 
   // 2. Menú de Admin
@@ -32,7 +31,7 @@ const Sidebar = () => {
     { path: '/admin?tab=horarios', label: 'Horarios', icon: <Clock className="w-5 h-5" /> },
     { path: '/admin?tab=pagos', label: 'Pagos', icon: <CreditCard className="w-5 h-5" /> },
     { path: '/admin?tab=notificaciones', label: 'Notificaciones', icon: <Bell className="w-5 h-5" /> },
-    { path: '/admin?tab=profesoras', label: 'Profesoras', icon: <UserCircle className="w-5 h-5" /> },
+    { path: '/admin?tab=profesoras', label: 'Profesoras', icon: <Users className="w-5 h-5" /> },
     { path: '/admin?tab=planes', label: 'Planes', icon: <CreditCard className="w-5 h-5" /> },
   ];
 
@@ -85,7 +84,8 @@ const Sidebar = () => {
         </div>
       )}
 
-      <nav className="flex-1 px-4 space-y-1 overflow-y-auto">
+      <nav className="flex-1 px-4 py-2 space-y-1 overflow-y-auto">
+        {/* Links dinámicos según el rol */}
         {links.map((link) => {
           const active = isLinkActive(link.path);
           return (
@@ -103,6 +103,21 @@ const Sidebar = () => {
             </NavLink>
           );
         })}
+
+        {/* Separador y botón de perfil universal */}
+        <div className="my-4 border-t border-gray-100"></div>
+        
+        <NavLink
+          to="/perfil"
+          className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm font-medium transition-colors ${
+            location.pathname === '/perfil'
+              ? 'bg-alma-olive text-white shadow-sm'
+              : 'text-gray-600 hover:bg-gray-50 hover:text-alma-text'
+          }`}
+        >
+          <UserCircle className="w-5 h-5" />
+          Mi Perfil
+        </NavLink>
       </nav>
 
       <div className="p-4 border-t border-gray-200">
