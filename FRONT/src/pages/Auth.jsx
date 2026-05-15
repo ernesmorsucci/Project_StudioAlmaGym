@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
+import useFormValidation from '../hooks/useFormValidation';
+import { FormInput } from '../components/FormComponents';
 
 const getRedirectPath = (user) => {
   const role = (user?.role || user?.rol || '').toLowerCase();
@@ -12,58 +14,70 @@ const getRedirectPath = (user) => {
 
 const Auth = () => {
   const [mode, setMode] = useState('login');
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    password: '',
-    phone: '',
-  });
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [backendError, setBackendError] = useState('');
   const { login, register } = useAuth();
   const navigate = useNavigate();
 
   const isLogin = mode === 'login';
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((currentData) => ({
-      ...currentData,
-      [name]: value,
-    }));
-  };
+  const initialValues = useMemo(
+    () =>
+      isLogin
+        ? { email: '', password: '' }
+        : { name: '', email: '', password: '', phone: '' },
+    [isLogin]
+  );
 
-  const handleModeChange = (nextMode) => {
-    setMode(nextMode);
-    setError('');
-  };
+  const validationSchema = useMemo(
+    () =>
+      isLogin
+        ? { email: 'email', password: 'password' }
+        : { name: 'name', email: 'email', password: 'password', phone: 'phone' },
+    [isLogin]
+  );
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setError('');
-    setLoading(true);
+  const {
+    values,
+    errors,
+    touched,
+    isSubmitting,
+    handleChange,
+    handleBlur,
+    handleSubmit,
+    resetForm,
+  } = useFormValidation(initialValues, validationSchema);
 
+  // Resetear formulario cuando cambia de modo
+  useEffect(() => {
+    resetForm();
+    setBackendError('');
+  }, [mode, resetForm]);
+
+  const onSubmit = async (formValues) => {
+    setBackendError('');
     try {
       const response = isLogin
-        ? await login(formData.email, formData.password)
+        ? await login(formValues.email, formValues.password)
         : await register(
-            formData.email,
-            formData.password,
-            formData.name,
-            formData.phone,
+            formValues.email,
+            formValues.password,
+            formValues.name,
+            formValues.phone,
             'alumno'
           );
 
       navigate(getRedirectPath(response.payload), { replace: true });
     } catch (err) {
-      setError(
+      setBackendError(
         isLogin
           ? 'Credenciales incorrectas. Intenta de nuevo.'
           : 'No pudimos crear tu cuenta. Revisa los datos e intenta de nuevo.'
       );
-    } finally {
-      setLoading(false);
     }
+  };
+
+  const handleModeChange = (nextMode) => {
+    setMode(nextMode);
   };
 
   return (
@@ -104,56 +118,53 @@ const Auth = () => {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {error && (
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+          {backendError && (
             <div className="bg-red-50 text-alma-danger text-sm p-3 rounded-lg text-center font-medium">
-              {error}
+              {backendError}
             </div>
           )}
 
           {!isLogin && (
-            <div>
-              <label className="block text-sm font-medium text-alma-text mb-1">
-                Nombre completo
-              </label>
-              <input
-                type="text"
-                name="name"
-                className="w-full px-4 py-2 border border-alma-border rounded-lg focus:outline-none focus:ring-2 focus:ring-alma-olive bg-alma-bg"
-                value={formData.name}
-                onChange={handleChange}
-                required={!isLogin}
-              />
-            </div>
+            <FormInput
+              label="Nombre completo"
+              name="name"
+              type="text"
+              value={values.name}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={errors.name}
+              touched={touched.name}
+              placeholder="Ej: Laura García"
+              required
+            />
           )}
 
-          <div>
-            <label className="block text-sm font-medium text-alma-text mb-1">
-              Correo electrónico
-            </label>
-            <input
-              type="email"
-              name="email"
-              className="w-full px-4 py-2 border border-alma-border rounded-lg focus:outline-none focus:ring-2 focus:ring-alma-olive bg-alma-bg"
-              value={formData.email}
-              onChange={handleChange}
-              required
-            />
-          </div>
+          <FormInput
+            label="Correo electrónico"
+            name="email"
+            type="email"
+            value={values.email}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            error={errors.email}
+            touched={touched.email}
+            placeholder="tu@email.com"
+            required
+          />
 
-          <div>
-            <label className="block text-sm font-medium text-alma-text mb-1">
-              Contraseña
-            </label>
-            <input
-              type="password"
-              name="password"
-              className="w-full px-4 py-2 border border-alma-border rounded-lg focus:outline-none focus:ring-2 focus:ring-alma-olive bg-alma-bg"
-              value={formData.password}
-              onChange={handleChange}
-              required
-            />
-          </div>
+          <FormInput
+            label="Contraseña"
+            name="password"
+            type="password"
+            value={values.password}
+            onChange={handleChange}
+            onBlur={handleBlur}
+            error={errors.password}
+            touched={touched.password}
+            placeholder="Min. 6 caracteres"
+            required
+          />
 
           {isLogin && (
             <div className="text-right -mt-2">
@@ -167,27 +178,25 @@ const Auth = () => {
           )}
 
           {!isLogin && (
-            <div>
-              <label className="block text-sm font-medium text-alma-text mb-1">
-                Teléfono
-              </label>
-              <input
-                type="tel"
-                name="phone"
-                className="w-full px-4 py-2 border border-alma-border rounded-lg focus:outline-none focus:ring-2 focus:ring-alma-olive bg-alma-bg"
-                value={formData.phone}
-                onChange={handleChange}
-                required={!isLogin}
-              />
-            </div>
+            <FormInput
+              label="Teléfono"
+              name="phone"
+              type="tel"
+              value={values.phone}
+              onChange={handleChange}
+              onBlur={handleBlur}
+              error={errors.phone}
+              touched={touched.phone}
+              placeholder="Ej: +54 9 11 1234-5678"
+            />
           )}
 
           <button
             type="submit"
-            disabled={loading}
+            disabled={isSubmitting}
             className="w-full bg-alma-olive hover:bg-alma-oliveHover text-white font-medium py-2.5 rounded-lg transition-colors mt-2 disabled:opacity-60 disabled:cursor-not-allowed"
           >
-            {loading
+            {isSubmitting
               ? 'Procesando...'
               : isLogin
                 ? 'Ingresar'

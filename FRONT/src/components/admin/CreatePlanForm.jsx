@@ -1,27 +1,44 @@
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle, CreditCard, Hash, X } from 'lucide-react';
 import api from '../../services/api';
+import useFormValidation from '../../hooks/useFormValidation';
+import { FormInput } from '../FormComponents';
 
 const CreatePlanForm = ({ onSuccess, onCancel, initialData = null }) => {
-    const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
-    const [formData, setFormData] = useState({
-        name: initialData?.name || '',
-        weeklyClasses: initialData?.weeklyClasses || 1,
-        price: initialData?.price || '',
-        isActive: initialData?.isActive ?? true
-    });
+    
+    const validationSchema = {
+        name: 'planName',
+        weeklyClasses: { required: 'Debes especificar clases semanales', min: 1, minMessage: 'Mínimo 1 clase por semana' },
+        price: { required: 'Debes especificar un precio', min: 0, minMessage: 'El precio no puede ser negativo' },
+    };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
+    const {
+        values,
+        errors,
+        touched,
+        isSubmitting,
+        handleChange,
+        handleBlur,
+        handleSubmit,
+    } = useFormValidation(
+        {
+            name: initialData?.name || '',
+            weeklyClasses: initialData?.weeklyClasses || 1,
+            price: initialData?.price || '',
+            isActive: initialData?.isActive ?? true
+        },
+        validationSchema
+    );
+
+    const onSubmit = async (formValues) => {
         setMessage({ type: '', text: '' });
 
         try {
             const payload = {
-                ...formData,
-                weeklyClasses: Number(formData.weeklyClasses),
-                price: Number(formData.price)
+                ...formValues,
+                weeklyClasses: Number(formValues.weeklyClasses),
+                price: Number(formValues.price)
             };
 
             const response = initialData
@@ -38,8 +55,6 @@ const CreatePlanForm = ({ onSuccess, onCancel, initialData = null }) => {
             }, 900);
         } catch (error) {
             setMessage({ type: 'error', text: error.response?.data?.error || 'Error al guardar el plan.' });
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -66,54 +81,53 @@ const CreatePlanForm = ({ onSuccess, onCancel, initialData = null }) => {
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="md:col-span-1">
-                        <label className="block text-sm font-medium text-alma-textLight mb-1 flex items-center gap-1">
-                            <CreditCard className="w-4 h-4" /> Nombre del plan
-                        </label>
-                        <input
-                            type="text"
-                            required
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none"
-                            placeholder="Ej: Plan 2x semana"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-alma-textLight mb-1 flex items-center gap-1">
-                            <Hash className="w-4 h-4" /> Clases semanales
-                        </label>
-                        <input
-                            type="number"
-                            min="1"
-                            max="6"
-                            required
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none"
-                            value={formData.weeklyClasses}
-                            onChange={(e) => setFormData({ ...formData, weeklyClasses: e.target.value })}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-alma-textLight mb-1">Precio mensual</label>
-                        <input
-                            type="number"
-                            min="0"
-                            required
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none"
-                            placeholder="Ej: 25000"
-                            value={formData.price}
-                            onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                        />
-                    </div>
+                    <FormInput
+                        label="Nombre del plan"
+                        name="name"
+                        type="text"
+                        value={values.name}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={errors.name}
+                        touched={touched.name}
+                        placeholder="Ej: Plan 2x semana"
+                        required
+                    />
+                    <FormInput
+                        label="Clases semanales"
+                        name="weeklyClasses"
+                        type="number"
+                        value={values.weeklyClasses}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={errors.weeklyClasses}
+                        touched={touched.weeklyClasses}
+                        min="1"
+                        max="6"
+                        required
+                    />
+                    <FormInput
+                        label="Precio mensual"
+                        name="price"
+                        type="number"
+                        value={values.price}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={errors.price}
+                        touched={touched.price}
+                        placeholder="Ej: 25000"
+                        min="0"
+                        required
+                    />
                 </div>
 
                 <label className="flex items-center gap-3 text-sm text-gray-700">
                     <input
                         type="checkbox"
-                        checked={formData.isActive}
-                        onChange={(e) => setFormData({ ...formData, isActive: e.target.checked })}
+                        checked={values.isActive}
+                        onChange={(e) => handleChange({ target: { name: 'isActive', value: e.target.checked } })}
                         className="h-4 w-4 rounded border-gray-300 text-alma-olive focus:ring-alma-olive"
                     />
                     Plan activo y disponible para asignar a alumnos
@@ -129,10 +143,10 @@ const CreatePlanForm = ({ onSuccess, onCancel, initialData = null }) => {
                     </button>
                     <button
                         type="submit"
-                        disabled={loading}
+                        disabled={isSubmitting}
                         className="bg-alma-olive text-white px-8 py-3 rounded-lg font-medium hover:bg-opacity-90 transition-colors shadow-sm disabled:opacity-50"
                     >
-                        {loading ? 'Guardando...' : initialData ? 'Guardar cambios' : 'Crear plan'}
+                        {isSubmitting ? 'Guardando...' : initialData ? 'Guardar cambios' : 'Crear plan'}
                     </button>
                 </div>
             </form>

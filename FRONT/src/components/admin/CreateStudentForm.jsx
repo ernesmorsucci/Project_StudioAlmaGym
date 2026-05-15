@@ -1,29 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { User, Mail, Lock, Calendar, CreditCard, CheckCircle, AlertCircle, X } from 'lucide-react';
 import api from '../../services/api';
+import useFormValidation from '../../hooks/useFormValidation';
+import { FormInput, FormSelect } from '../FormComponents';
 
 const CreateStudentForm = ({ onSuccess, onCancel }) => {
     const [plans, setPlans] = useState([]);
-    const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
     
     // Obtenemos la fecha de hoy en formato YYYY-MM-DD para el input default
     const today = new Date().toISOString().split('T')[0];
 
-    const [formData, setFormData] = useState({
-        name: '',
-        email: '',
-        password: '',
-        planId: '',
-        startDate: today
-    });
+    const validationSchema = {
+        name: 'name',
+        email: 'email',
+        password: 'password',
+        planId: 'required',
+        startDate: 'required',
+    };
+
+    const {
+        values,
+        errors,
+        touched,
+        isSubmitting,
+        handleChange,
+        handleBlur,
+        handleSubmit,
+    } = useFormValidation(
+        {
+            name: '',
+            email: '',
+            password: '',
+            planId: '',
+            startDate: today
+        },
+        validationSchema
+    );
 
     // Cargar los planes disponibles desde la base de datos
     useEffect(() => {
         const fetchPlans = async () => {
             try {
-                // Asumimos que tendrás una ruta para traer los planes. 
-                // Si aún no existe, el catch evitará que se rompa el form.
                 const response = await api.get('/plans/active');
                 setPlans(response.data.payload || []);
             } catch (error) {
@@ -33,14 +51,11 @@ const CreateStudentForm = ({ onSuccess, onCancel }) => {
         fetchPlans();
     }, []);
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
+    const onSubmit = async (formValues) => {
         setMessage({ type: '', text: '' });
 
         try {
-            // Enviaremos todo a un endpoint especial que creará al usuario y le asignará la membresía de una vez
-            const response = await api.post('/users/student-with-membership', formData);
+            const response = await api.post('/users/student-with-membership', formValues);
             
             setMessage({ type: 'success', text: response.data.message || 'Alumno registrado con éxito.' });
             
@@ -50,8 +65,6 @@ const CreateStudentForm = ({ onSuccess, onCancel }) => {
 
         } catch (error) {
             setMessage({ type: 'error', text: error.response?.data?.error || 'Error al registrar al alumno.' });
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -78,40 +91,48 @@ const CreateStudentForm = ({ onSuccess, onCancel }) => {
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-8">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
                 
                 {/* SECCIÓN 1: DATOS PERSONALES */}
                 <div>
                     <h4 className="text-sm font-bold text-gray-400 tracking-wider uppercase mb-4">1. Datos Personales</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-alma-textLight mb-1 flex items-center gap-1"><User className="w-4 h-4"/> Nombre completo</label>
-                            <input 
-                                type="text" required
-                                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none" 
-                                placeholder="Ej: Ana López"
-                                value={formData.name}
-                                onChange={(e) => setFormData({...formData, name: e.target.value})}
-                            />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-alma-textLight mb-1 flex items-center gap-1"><Mail className="w-4 h-4"/> Correo electrónico</label>
-                            <input 
-                                type="email" required
-                                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none" 
-                                placeholder="ana@ejemplo.com"
-                                value={formData.email}
-                                onChange={(e) => setFormData({...formData, email: e.target.value})}
-                            />
-                        </div>
+                        <FormInput
+                            label="Nombre completo"
+                            name="name"
+                            type="text"
+                            value={values.name}
+                            onChange={handleChange}
+                            onBlur={handleBlur}
+                            error={errors.name}
+                            touched={touched.name}
+                            placeholder="Ej: Ana López"
+                            required
+                        />
+                        <FormInput
+                            label="Correo electrónico"
+                            name="email"
+                            type="email"
+                            value={values.email}
+                            onChange={handleChange}
+                            onBlur={handleBlur}
+                            error={errors.email}
+                            touched={touched.email}
+                            placeholder="ana@ejemplo.com"
+                            required
+                        />
                         <div className="md:col-span-2">
-                            <label className="block text-sm font-medium text-alma-textLight mb-1 flex items-center gap-1"><Lock className="w-4 h-4"/> Contraseña provisoria</label>
-                            <input 
-                                type="text" required
-                                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none" 
+                            <FormInput
+                                label="Contraseña provisoria"
+                                name="password"
+                                type="text"
+                                value={values.password}
+                                onChange={handleChange}
+                                onBlur={handleBlur}
+                                error={errors.password}
+                                touched={touched.password}
                                 placeholder="Ej: Alma2025 (el alumno podrá cambiarla luego)"
-                                value={formData.password}
-                                onChange={(e) => setFormData({...formData, password: e.target.value})}
+                                required
                             />
                         </div>
                     </div>
@@ -121,40 +142,38 @@ const CreateStudentForm = ({ onSuccess, onCancel }) => {
                 <div>
                     <h4 className="text-sm font-bold text-gray-400 tracking-wider uppercase mb-4">2. Membresía Inicial (Opcional)</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-alma-textLight mb-1 flex items-center gap-1"><CreditCard className="w-4 h-4"/> Asignar Plan</label>
-                            <select 
-                                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none"
-                                value={formData.planId}
-                                onChange={(e) => setFormData({...formData, planId: e.target.value})}
-                            >
-                                <option value="">Crear solo la cuenta (Sin Plan)</option>
-                                {plans.map(p => (
-                                    <option key={p._id} value={p._id}>{p.name} - ${p.price}</option>
-                                ))}
-                            </select>
-                            <p className="text-xs text-gray-400 mt-1">Si seleccionas un plan, se generará el mes de clases automáticamente.</p>
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-alma-textLight mb-1 flex items-center gap-1"><Calendar className="w-4 h-4"/> Fecha de inicio de plan</label>
-                            <input 
-                                type="date" 
-                                disabled={!formData.planId} // Se deshabilita si no hay plan seleccionado
-                                className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none disabled:bg-gray-100 disabled:text-gray-400" 
-                                value={formData.startDate}
-                                onChange={(e) => setFormData({...formData, startDate: e.target.value})}
-                            />
-                        </div>
+                        <FormSelect
+                            label="Asignar Plan"
+                            name="planId"
+                            value={values.planId}
+                            onChange={handleChange}
+                            onBlur={handleBlur}
+                            error={errors.planId}
+                            touched={touched.planId}
+                            options={plans.map(p => ({ value: p._id, label: `${p.name} - $${p.price}` }))}
+                        />
+                        <FormInput
+                            label="Fecha de inicio de plan"
+                            name="startDate"
+                            type="date"
+                            value={values.startDate}
+                            onChange={handleChange}
+                            onBlur={handleBlur}
+                            error={errors.startDate}
+                            touched={touched.startDate}
+                            disabled={!values.planId}
+                        />
                     </div>
+                    <p className="text-xs text-gray-400 mt-2">Si seleccionas un plan, se generará el mes de clases automáticamente.</p>
                 </div>
 
                 <div className="pt-6 border-t border-gray-100 flex justify-end">
                     <button 
                         type="submit" 
-                        disabled={loading}
+                        disabled={isSubmitting}
                         className="bg-alma-olive text-white px-8 py-3 rounded-lg font-medium hover:bg-opacity-90 transition-colors shadow-sm disabled:opacity-50"
                     >
-                        {loading ? 'Procesando...' : 'Guardar Alumno'}
+                        {isSubmitting ? 'Procesando...' : 'Guardar Alumno'}
                     </button>
                 </div>
             </form>

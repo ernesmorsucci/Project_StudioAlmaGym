@@ -1,7 +1,7 @@
 import React from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { Home, Calendar, Users, Clock, CreditCard, Bell, LogOut, UserCircle, BookmarkCheck } from 'lucide-react';
+import { Home, Calendar, Users, Clock, CreditCard, Bell, LogOut, UserCircle, BookmarkCheck, ClipboardList } from 'lucide-react';
 
 const Sidebar = () => {
   const { user, logout } = useAuth();
@@ -32,7 +32,7 @@ const Sidebar = () => {
     { path: '/admin?tab=pagos', label: 'Pagos', icon: <CreditCard className="w-5 h-5" /> },
     { path: '/admin?tab=notificaciones', label: 'Notificaciones', icon: <Bell className="w-5 h-5" /> },
     { path: '/admin?tab=profesoras', label: 'Profesoras', icon: <Users className="w-5 h-5" /> },
-    { path: '/admin?tab=planes', label: 'Planes', icon: <CreditCard className="w-5 h-5" /> },
+    { path: '/admin?tab=planes', label: 'Planes', icon: <ClipboardList className="w-5 h-5" /> },
   ];
 
   // 3. Menú de Profesoras

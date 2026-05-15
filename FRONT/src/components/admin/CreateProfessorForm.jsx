@@ -1,34 +1,52 @@
 import React, { useState } from 'react';
 import { AlertCircle, CheckCircle, Mail, Sparkles, User, X } from 'lucide-react';
 import api from '../../services/api';
+import useFormValidation from '../../hooks/useFormValidation';
+import { FormInput } from '../FormComponents';
 
 const CreateProfessorForm = ({ onSuccess, onCancel, initialData = null }) => {
-    const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '' });
-    const [formData, setFormData] = useState({
-        name: initialData?.name || '',
-        email: initialData?.email || '',
-        password: '',
-        speciality: Array.isArray(initialData?.speciality) ? initialData.speciality.join(', ') : ''
-    });
+    
+    const validationSchema = {
+        name: 'name',
+        email: 'email',
+        password: 'password',
+        speciality: 'required',
+    };
 
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
+    const {
+        values,
+        errors,
+        touched,
+        isSubmitting,
+        handleChange,
+        handleBlur,
+        handleSubmit,
+    } = useFormValidation(
+        {
+            name: initialData?.name || '',
+            email: initialData?.email || '',
+            password: '',
+            speciality: Array.isArray(initialData?.speciality) ? initialData.speciality.join(', ') : ''
+        },
+        validationSchema
+    );
+
+    const onSubmit = async (formValues) => {
         setMessage({ type: '', text: '' });
 
         const payload = {
-            name: formData.name,
-            email: formData.email,
+            name: formValues.name,
+            email: formValues.email,
             rol: 'profesor',
-            speciality: formData.speciality
+            speciality: formValues.speciality
                 .split(',')
                 .map(item => item.trim())
                 .filter(Boolean)
         };
 
-        if (!initialData || formData.password) {
-            payload.password = formData.password;
+        if (!initialData || formValues.password) {
+            payload.password = formValues.password;
         }
 
         try {
@@ -46,8 +64,6 @@ const CreateProfessorForm = ({ onSuccess, onCancel, initialData = null }) => {
             }, 900);
         } catch (error) {
             setMessage({ type: 'error', text: error.response?.data?.error || 'Error al guardar la profesora.' });
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -74,59 +90,56 @@ const CreateProfessorForm = ({ onSuccess, onCancel, initialData = null }) => {
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-alma-textLight mb-1 flex items-center gap-1">
-                            <User className="w-4 h-4" /> Nombre completo
-                        </label>
-                        <input
-                            type="text"
-                            required
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none"
-                            placeholder="Ej: Laura Fernández"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-alma-textLight mb-1 flex items-center gap-1">
-                            <Mail className="w-4 h-4" /> Correo electrónico
-                        </label>
-                        <input
-                            type="email"
-                            required
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none"
-                            placeholder="laura@ejemplo.com"
-                            value={formData.email}
-                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-alma-textLight mb-1">
-                            {initialData ? 'Nueva contraseña' : 'Contraseña provisoria'}
-                        </label>
-                        <input
-                            type="text"
-                            required={!initialData}
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none"
-                            placeholder={initialData ? 'Dejar vacío para mantener la actual' : 'Ej: Alma2026'}
-                            value={formData.password}
-                            onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-alma-textLight mb-1 flex items-center gap-1">
-                            <Sparkles className="w-4 h-4" /> Especialidad
-                        </label>
-                        <input
-                            type="text"
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none"
-                            placeholder="Reformer, Mat, Prenatal"
-                            value={formData.speciality}
-                            onChange={(e) => setFormData({ ...formData, speciality: e.target.value })}
-                        />
-                    </div>
+                    <FormInput
+                        label="Nombre completo"
+                        name="name"
+                        type="text"
+                        value={values.name}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={errors.name}
+                        touched={touched.name}
+                        placeholder="Ej: Laura Fernández"
+                        required
+                    />
+                    <FormInput
+                        label="Correo electrónico"
+                        name="email"
+                        type="email"
+                        value={values.email}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={errors.email}
+                        touched={touched.email}
+                        placeholder="laura@ejemplo.com"
+                        required
+                    />
+                    <FormInput
+                        label={initialData ? 'Nueva contraseña' : 'Contraseña provisoria'}
+                        name="password"
+                        type="text"
+                        value={values.password}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={errors.password}
+                        touched={touched.password}
+                        placeholder={initialData ? 'Dejar vacío para mantener la actual' : 'Ej: Alma2026'}
+                        required={!initialData}
+                    />
+                    <FormInput
+                        label="Especialidad"
+                        name="speciality"
+                        type="text"
+                        value={values.speciality}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={errors.speciality}
+                        touched={touched.speciality}
+                        placeholder="Reformer, Mat, Prenatal"
+                        required
+                    />
                 </div>
 
                 <div className="pt-6 border-t border-gray-100 flex justify-end gap-3">
@@ -139,10 +152,10 @@ const CreateProfessorForm = ({ onSuccess, onCancel, initialData = null }) => {
                     </button>
                     <button
                         type="submit"
-                        disabled={loading}
+                        disabled={isSubmitting}
                         className="bg-alma-olive text-white px-8 py-3 rounded-lg font-medium hover:bg-opacity-90 transition-colors shadow-sm disabled:opacity-50"
                     >
-                        {loading ? 'Guardando...' : initialData ? 'Guardar cambios' : 'Agregar profesora'}
+                        {isSubmitting ? 'Guardando...' : initialData ? 'Guardar cambios' : 'Agregar profesora'}
                     </button>
                 </div>
             </form>

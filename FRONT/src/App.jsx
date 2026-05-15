@@ -23,6 +23,11 @@ const RoleProtectedRoute = ({ children, allowedRoles }) => {
   // 🔥 LA SOLUCIÓN: Buscamos "role" o "rol" dependiendo de cómo venga de la BD
   const userRole = (user.role || user.rol)?.toLowerCase() || '';
 
+  // Permite que rutas como /perfil estén accesibles para cualquier usuario autenticado
+  if (allowedRoles.includes('*')) {
+    return children;
+  }
+
   if (!allowedRoles.includes(userRole)) {
     console.warn(`🛑 Acceso denegado: El rol '${userRole}' intentó entrar a una zona restringida.`);
     if (userRole === 'profesor') return <Navigate to="/profesor" replace />;
@@ -57,7 +62,7 @@ function AppRoutes() {
         <Route 
           path="perfil" 
           element={
-            <RoleProtectedRoute allowedRoles={['alumno', 'profesor', 'admin']}>
+            <RoleProtectedRoute allowedRoles={['*']}>
               <UserProfile />
             </RoleProtectedRoute>
           } 

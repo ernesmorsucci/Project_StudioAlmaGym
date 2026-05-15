@@ -1,22 +1,41 @@
 import React, { useState, useEffect } from 'react';
 import { Clock, Users, CalendarDays, CheckCircle, AlertCircle, X } from 'lucide-react';
 import api from '../../services/api';
+import useFormValidation from '../../hooks/useFormValidation';
+import { FormInput, FormSelect } from '../FormComponents';
 
 const CreateScheduleForm = ({ onSuccess, onCancel, initialData = null }) => {
     const [professors, setProfessors] = useState([]);
-    const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState({ type: '', text: '', isWarning: false });
     
-    // Si viene initialData, llenamos el formulario. Si no, vacío.
-    const [formData, setFormData] = useState({
-        name: initialData?.name || '',
-        professorId: initialData?.professorId?._id || initialData?.professorId || '',
-        classType: initialData?.classType || 'Mat', 
-        daysWeek: initialData?.daysWeek || [], 
-        startTime: initialData?.startTime || '',
-        endTime: initialData?.endTime || '',
-        maxQuota: initialData?.maxQuota || 5
-    });
+    const validationSchema = {
+        name: 'className',
+        professorId: 'required',
+        maxQuota: { required: 'Debes seleccionar un cupo máximo', min: 1, minMessage: 'El cupo debe ser al menos 1' },
+        startTime: 'required',
+        endTime: 'required',
+    };
+
+    const {
+        values,
+        errors,
+        touched,
+        isSubmitting,
+        handleChange,
+        handleBlur,
+        handleSubmit,
+    } = useFormValidation(
+        {
+            name: initialData?.name || '',
+            professorId: initialData?.professorId?._id || initialData?.professorId || '',
+            classType: initialData?.classType || 'Mat',
+            daysWeek: initialData?.daysWeek || [],
+            startTime: initialData?.startTime || '',
+            endTime: initialData?.endTime || '',
+            maxQuota: initialData?.maxQuota || 5
+        },
+        validationSchema
+    );
 
     const diasSemana = [
         { num: 1, label: 'Lun' },
@@ -31,9 +50,7 @@ const CreateScheduleForm = ({ onSuccess, onCancel, initialData = null }) => {
     useEffect(() => {
         const fetchProfessors = async () => {
             try {
-                // Asumimos que tienes una ruta para traer usuarios. Si falla, mostramos un error controlado.
                 const response = await api.get('/users');
-                // Filtramos solo los que pueden dar clase (profesores y admins)
                 const profes = response.data.payload.filter(u => u.rol === 'profesor' || u.rol === 'admin');
                 setProfessors(profes);
             } catch (error) {
@@ -44,34 +61,26 @@ const CreateScheduleForm = ({ onSuccess, onCancel, initialData = null }) => {
     }, []);
 
     const toggleDia = (numDia) => {
-        setFormData(prev => {
-            if (prev.daysWeek.includes(numDia)) {
-                return { ...prev, daysWeek: prev.daysWeek.filter(d => d !== numDia) };
-            } else {
-                return { ...prev, daysWeek: [...prev.daysWeek, numDia].sort() };
-            }
-        });
+        const newDaysWeek = values.daysWeek.includes(numDia)
+            ? values.daysWeek.filter(d => d !== numDia)
+            : [...values.daysWeek, numDia].sort();
+        handleChange({ target: { name: 'daysWeek', value: newDaysWeek } });
     };
 
-    const handleSubmit = async (e, force = false) => {
-        if (e) e.preventDefault(); // El evento solo viene en el primer clic
-        setLoading(true);
+    const onSubmit = async (formValues, force = false) => {
         setMessage({ type: '', text: '' });
 
-        if (formData.daysWeek.length === 0) {
+        if (formValues.daysWeek.length === 0) {
             setMessage({ type: 'error', text: 'Debes seleccionar al menos un día.' });
-            setLoading(false);
             return;
         }
 
         try {
             let response;
             if (initialData) {
-                // MODO EDICIÓN
-                response = await api.put(`/schedules/${initialData._id}`, formData);
+                response = await api.put(`/schedules/${initialData._id}`, formValues);
             } else {
-                // MODO CREACIÓN
-                response = await api.post('/schedules', { ...formData, forceCreate: force });
+                response = await api.post('/schedules', { ...formValues, forceCreate: force });
             }
             
             setMessage({ type: 'success', text: response.data.message });
@@ -80,18 +89,15 @@ const CreateScheduleForm = ({ onSuccess, onCancel, initialData = null }) => {
         } catch (error) {
             const errorMsg = error.response?.data?.error || 'Error al crear el horario.';
 
-            // Detectamos si es una advertencia de salón ocupado
             if (errorMsg.includes('ADVERTENCIA')) {
                 setMessage({
                     type: 'warning',
                     text: errorMsg,
-                    isWarning: true // Flag para mostrar botones especiales
+                    isWarning: true
                 });
             } else {
                 setMessage({ type: 'error', text: errorMsg });
             }
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -110,79 +116,85 @@ const CreateScheduleForm = ({ onSuccess, onCancel, initialData = null }) => {
             </div>
 
             {message.text && (
-                <div className={`p-3 mb-6 rounded-lg flex items-center gap-2 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+                <div className={`p-3 mb-6 rounded-lg flex items-center gap-2 text-sm ${message.type === 'success' ? 'bg-green-50 text-green-700' : message.type === 'warning' ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'
                     }`}>
                     {message.type === 'success' ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}
                     {message.text}
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit((vals) => onSubmit(vals))} className="space-y-6">
                 {/* Fila 1: Nombre y Tipo */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-alma-textLight mb-1">Nombre de la Clase</label>
-                        <input
-                            type="text" required
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none"
-                            placeholder="Ej: Pilates Reformer Mañana"
-                            value={formData.name}
-                            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-alma-textLight mb-1">Tipo de Clase</label>
-                        <select
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none"
-                            value={formData.classType}
-                            onChange={(e) => setFormData({ ...formData, classType: e.target.value })}
-                        >
-                            <option value="Mat">Pilates Mat</option>
-                            <option value="Reformer">Pilates Reformer</option>
-                            <option value="Terapeutico">Pilates Terapéutico</option>
-                            <option value="Prenatal">Pilates Prenatal</option>
-                            <option value="Yogalates">Pilates Yogalates</option>
-                            <option value="Power_Pilates">Pilates Power_Pilates</option>
-                            <option value="Reformer_Pro">Pilates Reformer_Pro</option>
-                            <option value="Chair">Pilates Chair</option>
-                            <option value="Tower">Pilates Tower</option>
-                        </select>
-                    </div>
+                    <FormInput
+                        label="Nombre de la Clase"
+                        name="name"
+                        type="text"
+                        value={values.name}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={errors.name}
+                        touched={touched.name}
+                        placeholder="Ej: Pilates Reformer Mañana"
+                        required
+                    />
+                    <FormSelect
+                        label="Tipo de Clase"
+                        name="classType"
+                        value={values.classType}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={errors.classType}
+                        touched={touched.classType}
+                        options={[
+                            { value: 'Mat', label: 'Pilates Mat' },
+                            { value: 'Reformer', label: 'Pilates Reformer' },
+                            { value: 'Terapeutico', label: 'Pilates Terapéutico' },
+                            { value: 'Prenatal', label: 'Pilates Prenatal' },
+                            { value: 'Yogalates', label: 'Pilates Yogalates' },
+                            { value: 'Power_Pilates', label: 'Pilates Power_Pilates' },
+                            { value: 'Reformer_Pro', label: 'Pilates Reformer_Pro' },
+                            { value: 'Chair', label: 'Pilates Chair' },
+                            { value: 'Tower', label: 'Pilates Tower' },
+                        ]}
+                    />
                 </div>
 
                 {/* Fila 2: Profesor y Cupos */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-alma-textLight mb-1 flex items-center gap-1"><Users className="w-4 h-4" /> Profesora Asignada</label>
-                        <select
-                            required
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none"
-                            value={formData.professorId}
-                            onChange={(e) => setFormData({ ...formData, professorId: e.target.value })}
-                        >
-                            <option value="">Seleccionar profesora...</option>
-                            {professors.map(p => (
-                                <option key={p._id} value={p._id}>{p.name}</option>
-                            ))}
-                        </select>
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-alma-textLight mb-1">Cupo Máximo</label>
-                        <input
-                            type="number" min="1" max="20" required
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none"
-                            value={formData.maxQuota}
-                            onChange={(e) => setFormData({ ...formData, maxQuota: Number(e.target.value) })}
-                        />
-                    </div>
+                    <FormSelect
+                        label="Profesora Asignada"
+                        name="professorId"
+                        value={values.professorId}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={errors.professorId}
+                        touched={touched.professorId}
+                        options={professors.map(p => ({ value: p._id, label: p.name }))}
+                        required
+                    />
+                    <FormInput
+                        label="Cupo Máximo"
+                        name="maxQuota"
+                        type="number"
+                        value={values.maxQuota}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={errors.maxQuota}
+                        touched={touched.maxQuota}
+                        placeholder="1-20"
+                        required
+                        min="1"
+                        max="20"
+                    />
                 </div>
 
                 {/* Fila 3: Días de la semana */}
                 <div>
-                    <label className="block text-sm font-medium text-alma-textLight mb-2 flex items-center gap-1"><CalendarDays className="w-4 h-4" /> Días de la semana</label>
+                    <label className="block text-sm font-medium text-alma-textLight mb-2 flex items-center gap-1"><CalendarDays className="w-4 h-4" /> Días de la semana <span className="text-red-500">*</span></label>
                     <div className="flex flex-wrap gap-2">
                         {diasSemana.map((dia) => {
-                            const isSelected = formData.daysWeek.includes(dia.num);
+                            const isSelected = values.daysWeek.includes(dia.num);
                             return (
                                 <button
                                     key={dia.num} type="button"
@@ -201,33 +213,36 @@ const CreateScheduleForm = ({ onSuccess, onCancel, initialData = null }) => {
 
                 {/* Fila 4: Horarios */}
                 <div className="grid grid-cols-2 gap-4">
-                    <div>
-                        <label className="block text-sm font-medium text-alma-textLight mb-1 flex items-center gap-1"><Clock className="w-4 h-4" /> Hora Inicio</label>
-                        <input
-                            type="time" required
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none"
-                            value={formData.startTime}
-                            onChange={(e) => setFormData({ ...formData, startTime: e.target.value })}
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-alma-textLight mb-1 flex items-center gap-1"><Clock className="w-4 h-4" /> Hora Fin</label>
-                        <input
-                            type="time" required
-                            className="w-full p-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-alma-olive outline-none"
-                            value={formData.endTime}
-                            onChange={(e) => setFormData({ ...formData, endTime: e.target.value })}
-                        />
-                    </div>
+                    <FormInput
+                        label="Hora Inicio"
+                        name="startTime"
+                        type="time"
+                        value={values.startTime}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={errors.startTime}
+                        touched={touched.startTime}
+                        required
+                    />
+                    <FormInput
+                        label="Hora Fin"
+                        name="endTime"
+                        type="time"
+                        value={values.endTime}
+                        onChange={handleChange}
+                        onBlur={handleBlur}
+                        error={errors.endTime}
+                        touched={touched.endTime}
+                        required
+                    />
                 </div>
 
                 <div className="pt-4 flex flex-col gap-3">
-                    {/* SI HAY UNA ADVERTENCIA, MOSTRAMOS BOTONES DOBLES */}
                     {message.isWarning ? (
                         <div className="flex gap-3">
                             <button
                                 type="button"
-                                onClick={() => handleSubmit(null, true)} // Re-intentamos con force=true
+                                onClick={() => onSubmit(values, true)}
                                 className="flex-1 bg-alma-olive text-white py-3 rounded-lg font-medium hover:bg-opacity-90"
                             >
                                 Crear de todas formas
@@ -241,13 +256,12 @@ const CreateScheduleForm = ({ onSuccess, onCancel, initialData = null }) => {
                             </button>
                         </div>
                     ) : (
-                        /* BOTÓN NORMAL */
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={isSubmitting}
                             className="w-full bg-alma-olive text-white py-3 rounded-lg font-medium hover:bg-opacity-90 disabled:opacity-50"
                         >
-                            {loading ? 'Validando...' : 'Guardar Horario y Generar Clases'}
+                            {isSubmitting ? 'Validando...' : 'Guardar Horario y Generar Clases'}
                         </button>
                     )}
                 </div>

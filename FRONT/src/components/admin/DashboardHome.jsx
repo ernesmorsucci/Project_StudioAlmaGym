@@ -81,7 +81,7 @@ const DashboardHome = () => {
                 <div className="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center gap-5">
                     <div className="p-4 bg-blue-50 text-blue-500 rounded-2xl"><Users className="w-8 h-8"/></div>
                     <div>
-                        <p className="text-xs text-gray-400 font-black tracking-widest uppercase">Alumnas Activas</p>
+                        <p className="text-xs text-gray-400 font-black tracking-widest uppercase">Alumnos Activas</p>
                         <h3 className="text-3xl font-serif text-gray-800 mt-1">{stats.activeStudents} <span className="text-sm font-sans text-gray-400 font-normal">/ {stats.totalStudents}</span></h3>
                     </div>
                 </div>
@@ -108,7 +108,7 @@ const DashboardHome = () => {
                     <h3 className="text-xl font-serif text-alma-text mb-5">Acciones Rápidas</h3>
                     <div className="space-y-3">
                         <button onClick={() => navigateTo('alumnos')} className="w-full flex items-center gap-4 p-4 bg-gray-50 hover:bg-alma-olive hover:text-white rounded-2xl transition-all text-gray-700 font-bold group border border-transparent">
-                            <div className="p-2 bg-white rounded-lg text-alma-olive shadow-sm"><UserPlus className="w-5 h-5"/></div> Inscribir Alumna
+                            <div className="p-2 bg-white rounded-lg text-alma-olive shadow-sm"><UserPlus className="w-5 h-5"/></div> Inscribir Alumno
                         </button>
                         <button onClick={() => navigateTo('pagos')} className="w-full flex items-center gap-4 p-4 bg-gray-50 hover:bg-alma-olive hover:text-white rounded-2xl transition-all text-gray-700 font-bold group border border-transparent">
                             <div className="p-2 bg-white rounded-lg text-alma-olive shadow-sm"><CreditCard className="w-5 h-5"/></div> Registrar Cobro

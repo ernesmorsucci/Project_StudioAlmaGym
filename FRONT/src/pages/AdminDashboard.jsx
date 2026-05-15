@@ -464,7 +464,7 @@ const AdminDashboard = () => {
           <div className="flex justify-between items-center mb-8">
             <div>
               <h2 className="text-3xl font-serif text-alma-text">Gestión de planes</h2>
-              <p className="text-sm text-gray-500 mt-1">Administra los planes mensuales disponibles para las alumnas.</p>
+              <p className="text-sm text-gray-500 mt-1">Administra los planes mensuales disponibles para los alumnos.</p>
             </div>
             {!showPlanForm && (
               <button

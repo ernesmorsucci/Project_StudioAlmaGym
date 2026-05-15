@@ -61,8 +61,8 @@ const ProfessorDashboard = () => {
         const reservesMap = reservesRes.data.payload || {};
 
         // DEBUG: Mostrar en consola para verificar keys/ids
-        console.log('ProfessorDashboard: clases encontradas', professorClasses.map(c => c._id));
-        console.log('ProfessorDashboard: reservas por clase (keys)', Object.keys(reservesMap));
+        // console.log('ProfessorDashboard: clases encontradas', professorClasses.map(c => c._id));
+        // console.log('ProfessorDashboard: reservas por clase (keys)', Object.keys(reservesMap));
 
         setClasses(professorClasses);
         setStudentsDirectory(studentsRes.data.payload || []);

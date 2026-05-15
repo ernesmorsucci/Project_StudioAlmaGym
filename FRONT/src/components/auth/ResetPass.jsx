@@ -1,25 +1,38 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import useFormValidation from '../../hooks/useFormValidation';
+import { FormInput } from '../FormComponents';
 
-const ResetPass = ({ initialEmail = '' }) => {
-  const [email, setEmail] = useState(initialEmail);
-  const [code, setCode] = useState('');
-  const [newPassword, setNewPassword] = useState('');
+const ResetPassForm = ({ initialEmail = '' }) => {
   const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [backendError, setBackendError] = useState('');
   const { resetPassword } = useAuth();
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const {
+    values,
+    errors,
+    touched,
+    isSubmitting,
+    handleChange,
+    handleBlur,
+    handleSubmit,
+  } = useFormValidation(
+    { email: initialEmail, code: '', newPassword: '' },
+    { email: 'email', code: 'required', newPassword: 'password' }
+  );
+
+  const onSubmit = async (formValues) => {
     setMessage('');
-    setError('');
-    setLoading(true);
+    setBackendError('');
 
     try {
-      const response = await resetPassword(email, code, newPassword);
+      const response = await resetPassword(
+        formValues.email,
+        formValues.code,
+        formValues.newPassword
+      );
       setMessage(
         response.message ||
           'Contraseña restablecida con éxito. Te redirigiremos al login en 3 segundos.'
@@ -29,9 +42,7 @@ const ResetPass = ({ initialEmail = '' }) => {
         navigate('/auth', { replace: true });
       }, 3000);
     } catch (err) {
-      setError(err.response?.data?.error || 'Ocurrió un error. Intenta de nuevo más tarde.');
-    } finally {
-      setLoading(false);
+      setBackendError(err.response?.data?.error || 'Ocurrió un error. Intenta de nuevo más tarde.');
     }
   };
 
@@ -46,69 +57,69 @@ const ResetPass = ({ initialEmail = '' }) => {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {message && (
           <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg text-center font-medium">
             {message}
           </div>
         )}
 
-        {error && (
+        {backendError && (
           <div className="bg-red-50 text-alma-danger text-sm p-3 rounded-lg text-center font-medium">
-            {error}
+            {backendError}
           </div>
         )}
 
-        <div>
-          <label className="block text-sm font-medium text-alma-text mb-1">
-            Correo electrónico
-          </label>
-          <input
-            type="email"
-            className="w-full px-4 py-2 border border-alma-border rounded-lg focus:outline-none focus:ring-2 focus:ring-alma-olive bg-alma-bg"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
+        <FormInput
+          label="Correo electrónico"
+          name="email"
+          type="email"
+          value={values.email}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          error={errors.email}
+          touched={touched.email}
+          placeholder="tu@email.com"
+          required
+        />
 
-        <div>
-          <label className="block text-sm font-medium text-alma-text mb-1">
-            Código de recuperación
-          </label>
-          <input
-            type="text"
-            inputMode="numeric"
-            className="w-full px-4 py-2 border border-alma-border rounded-lg focus:outline-none focus:ring-2 focus:ring-alma-olive bg-alma-bg"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            required
-          />
-        </div>
+        <FormInput
+          label="Código de recuperación"
+          name="code"
+          type="text"
+          inputMode="numeric"
+          value={values.code}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          error={errors.code}
+          touched={touched.code}
+          placeholder="Ej: 123456"
+          required
+        />
 
-        <div>
-          <label className="block text-sm font-medium text-alma-text mb-1">
-            Nueva contraseña
-          </label>
-          <input
-            type="password"
-            className="w-full px-4 py-2 border border-alma-border rounded-lg focus:outline-none focus:ring-2 focus:ring-alma-olive bg-alma-bg"
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            required
-          />
-        </div>
+        <FormInput
+          label="Nueva contraseña"
+          name="newPassword"
+          type="password"
+          value={values.newPassword}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          error={errors.newPassword}
+          touched={touched.newPassword}
+          placeholder="Min. 6 caracteres"
+          required
+        />
 
         <button
           type="submit"
-          disabled={loading}
+          disabled={isSubmitting}
           className="w-full py-2.5 px-4 bg-alma-olive text-white rounded-lg hover:bg-alma-oliveHover transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {loading ? 'Restableciendo...' : 'Restablecer contraseña'}
+          {isSubmitting ? 'Restableciendo...' : 'Restablecer contraseña'}
         </button>
       </form>
     </>
   );
 };
 
-export default ResetPass;
+export default ResetPassForm;

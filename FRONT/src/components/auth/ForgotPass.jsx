@@ -1,14 +1,24 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
+import useFormValidation from '../../hooks/useFormValidation';
+import { FormInput } from '../FormComponents';
 
 const ForgotPass = ({ onSuccess }) => {
-  const [email, setEmail] = useState('');
-  const [message, setMessage] = useState('');
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [waitingNextStep, setWaitingNextStep] = useState(false);
+  const [message, setMessage] = React.useState('');
+  const [backendError, setBackendError] = React.useState('');
+  const [waitingNextStep, setWaitingNextStep] = React.useState(false);
   const nextStepTimerRef = useRef(null);
   const { forgotPassword } = useAuth();
+
+  const {
+    values,
+    errors,
+    touched,
+    isSubmitting,
+    handleChange,
+    handleBlur,
+    handleSubmit,
+  } = useFormValidation({ email: '' }, { email: 'email' });
 
   useEffect(() => {
     return () => {
@@ -18,15 +28,13 @@ const ForgotPass = ({ onSuccess }) => {
     };
   }, []);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const onSubmit = async (formValues) => {
     setMessage('');
-    setError('');
-    setLoading(true);
+    setBackendError('');
     setWaitingNextStep(false);
 
     try {
-      const response = await forgotPassword(email);
+      const response = await forgotPassword(formValues.email);
       setMessage(
         response.message ||
           'Si el correo existe, recibirás un código para restablecer tu contraseña.'
@@ -34,12 +42,10 @@ const ForgotPass = ({ onSuccess }) => {
       setWaitingNextStep(true);
 
       nextStepTimerRef.current = setTimeout(() => {
-        onSuccess?.(email);
+        onSuccess?.(formValues.email);
       }, 3000);
     } catch (err) {
-      setError('Ocurrió un error. Intenta de nuevo más tarde.');
-    } finally {
-      setLoading(false);
+      setBackendError('Ocurrió un error. Intenta de nuevo más tarde.');
     }
   };
 
@@ -54,38 +60,38 @@ const ForgotPass = ({ onSuccess }) => {
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {message && (
           <div className="bg-green-50 text-green-700 text-sm p-3 rounded-lg text-center font-medium">
             {message}
           </div>
         )}
 
-        {error && (
+        {backendError && (
           <div className="bg-red-50 text-alma-danger text-sm p-3 rounded-lg text-center font-medium">
-            {error}
+            {backendError}
           </div>
         )}
 
-        <div>
-          <label className="block text-sm font-medium text-alma-text mb-1">
-            Correo electrónico
-          </label>
-          <input
-            type="email"
-            className="w-full px-4 py-2 border border-alma-border rounded-lg focus:outline-none focus:ring-2 focus:ring-alma-olive bg-alma-bg"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-          />
-        </div>
+        <FormInput
+          label="Correo electrónico"
+          name="email"
+          type="email"
+          value={values.email}
+          onChange={handleChange}
+          onBlur={handleBlur}
+          error={errors.email}
+          touched={touched.email}
+          placeholder="tu@email.com"
+          required
+        />
 
         <button
           type="submit"
-          disabled={loading || waitingNextStep}
+          disabled={isSubmitting || waitingNextStep}
           className="w-full py-2.5 px-4 bg-alma-olive text-white rounded-lg hover:bg-alma-oliveHover transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {loading
+          {isSubmitting
             ? 'Enviando...'
             : waitingNextStep
               ? 'Continuando...'
