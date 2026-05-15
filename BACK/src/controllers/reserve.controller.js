@@ -7,9 +7,6 @@ import classModel from "../dao/models/class.model.js";
 export const getReservesByProfessor = async (req, res) => {
     try {
         const { pid } = req.params;
-
-        console.log(`[getReservesByProfessor] pid=${pid} requested by=${req.user?._id || 'anon'}`);
-
         const classes = await classModel.find({ professorId: pid }).select('_id');
         const classIds = classes.map(c => c._id);
 
@@ -119,9 +116,6 @@ export const getAllReserves = async (req, res) => {
 export const getClassReserves = async (req, res) => {
     try {
         const { cid } = req.params;
-
-        // Logueamos el request para depuración: quién pide y qué clase
-        console.log(`[getClassReserves] user=${req.user?._id || 'anon'} rol=${req.user?.rol || 'unknown'} cid=${cid}`);
 
         // Buscamos reservas por scheduleId o por el legacy classId y poblamos student y clase
         const reserves = await reserveModel.find({
