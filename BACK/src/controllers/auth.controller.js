@@ -9,7 +9,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 export const register = async (req, res) => {
     try {
         // Ignoramos 'rol' si lo mandan en el body
-        const { name, email, password, phone, speciality } = req.body;
+        const { name, email, password, phone, speciality, rol } = req.body;
 
         const exists = await userService.findByEmail(email);
         if (exists) return res.status(400).json({ error: "El email ya está registrado" });
@@ -18,8 +18,8 @@ export const register = async (req, res) => {
             name,
             email,
             password: await createHash(password),
-            phone,
-            rol: 'alumno', // 🛡️ FUERZA EL ROL: Siempre será alumno al registrarse por fuera
+            phone: phone || null,
+            rol: rol || 'alumno',
             speciality: speciality || []
         };
 

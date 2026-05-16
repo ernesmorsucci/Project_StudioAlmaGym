@@ -36,10 +36,11 @@ export const AuthProvider = ({ children }) => {
   };
 
   const register = async (email, password, name, phone, rol) => {
-    const { data } = await api.post('/auth/register', { email, password, name, phone, rol });
+    await api.post('/auth/register', { email, password, name, phone, rol });
+    const { data } = await api.post('/auth/login', { email, password });
     setUser(data.payload);
     return data;
-  }
+  };
 
   const forgotPassword = async (email) => {
     const { data } = await api.post('/auth/forgot-password', { email });
