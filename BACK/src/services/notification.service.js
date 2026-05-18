@@ -15,31 +15,56 @@ export default class NotificationService {
         const newNotification = await notificationRepo.create(doc);
 
         if (doc.studentIds && doc.studentIds.length > 0) {
-            // Ejecutar en segundo plano
-            this._sendEmailsToReceivers(doc.studentIds, doc.subject, doc.message);
+            // Ejecutar en segundo plano pero almacenar resultado
+            this._sendEmailsToReceivers(doc.studentIds, doc.subject, doc.message, newNotification._id);
         }
 
         return newNotification;
     }
 
-    async _sendEmailsToReceivers(studentIds, subject, message) {
+    async _sendEmailsToReceivers(studentIds, subject, message, notificationId) {
         let successCount = 0;
+        let failedCount = 0;
+        const failedEmails = [];
+
+        console.log(`\n📧 [Notification Service] Iniciando envío de emails...`);
+        console.log(`   Total de destinatarios: ${studentIds.length}`);
+        console.log(`   IDs: ${studentIds.join(', ')}`);
 
         for (const studentId of studentIds) {
-            // 🔥 LA MAGIA: Ponemos un try-catch INDIVIDUAL para cada envío
             try {
+                console.log(`   🔍 Buscando estudiante: ${studentId}`);
                 const student = await userService.getBy({ _id: studentId });
                 
                 if (student && student.email) {
-                    // Enviamos los tres datos requeridos
+                    console.log(`   ✉️  Encontrado: ${student.name} (${student.email})`);
                     const sent = await emailService.sendNotificationEmail(student.email, subject, message);
-                    if (sent) successCount++;
+                    if (sent) {
+                        successCount++;
+                        console.log(`   ✅ Email enviado exitosamente`);
+                    } else {
+                        failedCount++;
+                        failedEmails.push({ studentId, email: student.email, reason: "Email service returned false" });
+                        console.log(`   ❌ Email service retornó false`);
+                    }
+                } else {
+                    failedCount++;
+                    failedEmails.push({ studentId, reason: "Student not found or no email" });
+                    console.log(`   ❌ Estudiante no encontrado o sin email`);
                 }
             } catch (error) {
-                // Si este correo falla, solo lo anotamos en la consola, pero el bucle NO SE DETIENE
-                console.error(`Error enviando email al alumno ID ${studentId}:`, error.message);
+                failedCount++;
+                failedEmails.push({ studentId, reason: error.message });
+                console.error(`   ❌ Error enviando email al alumno ID ${studentId}:`, error.message);
             }
         }
-        console.log(`Proceso finalizado. Correos masivos enviados con éxito: ${successCount} de ${studentIds.length}`);
+        
+        console.log(`\n✅ [Notification Service] Resumen: ${successCount}/${studentIds.length} correos enviados exitosamente`);
+        
+        if (failedCount > 0) {
+            console.warn(`⚠️  [Notification Service] ${failedCount} correos fallaron:`, failedEmails);
+        }
+        
+        return { successCount, failedCount, failedEmails };
     }
 }

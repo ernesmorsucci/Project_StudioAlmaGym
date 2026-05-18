@@ -1,4 +1,5 @@
-import { classService, recurrentScheduleService, userService } from "../services/index.service.js";
+import { classService, recurrentScheduleService, userService, reserveService, membershipService, notificationService } from "../services/index.service.js";
+import reserveModel from "../dao/models/reserve.model.js";
 
 // ==========================================
 // NUEVO: Obtener clases para el Calendario
@@ -116,15 +117,114 @@ export const updateClass = async (req, res) => {
     }
 };
 
-// 5. Eliminar una clase
+// 5. Cancelar una clase y eliminarla del sistema
+export const cancelClass = async (req, res) => {
+    try {
+        const { cid } = req.params;
+        const userId = req.user._id;
+        const userRole = req.user.rol;
+
+        const classItem = await classService.getBy({ _id: cid });
+        if (!classItem) return res.status(404).json({ status: "error", error: "Clase no encontrada" });
+
+        if (userRole === 'profesor') {
+            const classProfesorId = String(classItem.professorId?._id || classItem.professorId);
+            if (classProfesorId !== String(userId)) {
+                return res.status(403).json({ status: "error", error: "No tienes permiso para cancelar esta clase" });
+            }
+        }
+
+        const reserves = await reserveModel.find({
+            $or: [
+                { scheduleId: cid },
+                { classId: cid }
+            ]
+        }).populate('studentId', 'name email');
+
+        const studentIds = reserves
+            .map((reserve) => reserve.studentId?._id || reserve.studentId)
+            .filter(Boolean)
+            .map(String);
+
+        const reservedReserves = reserves.filter((reserve) => reserve.status === 'reserved');
+
+        // Restaurar créditos de membresía a quienes tenían reserva confirmada
+        for (const reserve of reservedReserves) {
+            try {
+                const membership = await membershipService.getBy({ studentId: reserve.studentId, status: 'active' });
+                if (membership && membership.usedClassesThisMonth > 0) {
+                    await membershipService.update(membership._id, {
+                        usedClassesThisMonth: membership.usedClassesThisMonth - 1
+                    });
+                }
+            } catch (restoreError) {
+                console.warn(`No se pudo restaurar membresía para reserva ${reserve._id}:`, restoreError.message);
+            }
+        }
+
+        await reserveModel.updateMany(
+            { $or: [{ scheduleId: cid }, { classId: cid }] },
+            { status: 'cancelled' }
+        );
+
+        const deleteResult = await classService.delete(cid);
+        if (!deleteResult) return res.status(404).json({ status: "error", error: "Clase no encontrada" });
+
+        if (studentIds.length > 0) {
+            try {
+                await notificationService.create({
+                    adminId: userId,
+                    subject: `Clase Cancelada: ${classItem.name}`,
+                    message: `La clase de ${classItem.name} programada para ${new Date(classItem.dateTime).toLocaleDateString('es-AR')} ha sido cancelada. Se reembolsará el crédito utilizado.`,
+                    targetType: 'class_cancellation',
+                    studentIds,
+                    sent: studentIds.length
+                });
+            } catch (notifError) {
+                console.error('Error al crear notificación de cancelación de clase:', notifError);
+            }
+        }
+
+        res.status(200).json({
+            status: "success",
+            message: "Clase cancelada, reservas marcadas como canceladas y notificaciones enviadas.",
+            payload: {
+                studentsNotified: studentIds.length,
+                cancelledReserves: reserves.length
+            }
+        });
+    } catch (error) {
+        console.error("Error en cancelClass:", error);
+        res.status(500).json({ status: "error", error: "Error al cancelar la clase" });
+    }
+};
+
+// 6. Eliminar una clase
 export const deleteClass = async (req, res) => {
     try {
         const { cid } = req.params;
+        const userId = req.user._id;
+        const userRole = req.user.rol;
+
+        // 🔒 VALIDACIÓN: Profesores solo pueden eliminar sus propias clases
+        if (userRole === 'profesor') {
+            const classItem = await classService.getBy({ _id: cid });
+            if (!classItem) return res.status(404).json({ status: "error", error: "Clase no encontrada" });
+            
+            // Comparar IDs de profesor
+            const classProfesorId = String(classItem.professorId?._id || classItem.professorId);
+            const requestingUserId = String(userId);
+            
+            if (classProfesorId !== requestingUserId) {
+                return res.status(403).json({ status: "error", error: "No tienes permiso para eliminar esta clase" });
+            }
+        }
+
         const result = await classService.delete(cid);
 
         if (!result) return res.status(404).json({ status: "error", error: "Clase no encontrada" });
 
-        res.status(200).json({ status: "success", message: "Clase eliminada físicamente de la base de datos" });
+        res.status(200).json({ status: "success", message: "Clase eliminada física del sistema" });
     } catch (error) {
         console.error("Error en deleteClass:", error);
         res.status(500).json({ status: "error", error: "Error al eliminar la clase" });

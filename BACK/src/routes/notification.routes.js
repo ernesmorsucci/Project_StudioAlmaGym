@@ -15,8 +15,8 @@ notificationRouter.get("/student/:uid", isAuthenticated, getUserNotifications);
 // 2. El Admin ve el historial completo de notificaciones enviadas
 notificationRouter.get("/", isAuthenticated, checkRole(['admin']), getAllNotifications);
 
-// 3. El Admin crea y envía una nueva notificación
-notificationRouter.post("/", isAuthenticated, checkRole(['admin']), createNotification);
+// 3. Admin y Profesores pueden crear y enviar notificaciones
+notificationRouter.post("/", isAuthenticated, checkRole(['admin', 'profesor']), createNotification);
 
 // 4. El Admin borra una notificación vieja
 notificationRouter.delete("/:nid", isAuthenticated, checkRole(['admin']), deleteNotification);

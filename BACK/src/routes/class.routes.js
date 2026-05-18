@@ -1,7 +1,7 @@
 import { Router } from "express";
 import { 
     getAvailableClasses, // <- IMPORTAMOS EL NUEVO CONTROLADOR
-    getAllClasses, getClassById, addClass, updateClass, deleteClass, getClassesByDate,
+    getAllClasses, getClassById, addClass, updateClass, deleteClass, cancelClass, getClassesByDate,
     getProfessorReport 
 } from "../controllers/class.controller.js";
 import { isAuthenticated, checkRole } from "../middlewares/auth.middleware.js";
@@ -24,6 +24,8 @@ classRouter.get("/:cid", isAuthenticated, getClassById);
 // Rutas de escritura (Solo Admin)
 classRouter.post("/", isAuthenticated, checkRole(['admin']), addClass);
 classRouter.put("/:cid", isAuthenticated, checkRole(['admin']), updateClass);
-classRouter.delete("/:cid", isAuthenticated, checkRole(['admin']), deleteClass);
+// Profesores pueden cancelar sus propias clases y eliminarlas del sistema
+classRouter.delete("/:cid/cancel", isAuthenticated, checkRole(['admin', 'profesor']), cancelClass);
+classRouter.delete("/:cid", isAuthenticated, checkRole(['admin', 'profesor']), deleteClass);
 
 export default classRouter;
