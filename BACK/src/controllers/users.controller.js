@@ -3,6 +3,27 @@ import { createHash } from '../utils/hash.js'; // <-- ¡NUEVO! Importamos la fun
 import EmailService from '../services/email.service.js';
 
 const emailService = new EmailService();
+
+const sanitizeUser = (user) => {
+    // Si viene de Mongoose, los datos reales están en user._doc, si es un objeto JS normal, usamos user
+    const userData = user._doc || user; 
+    
+    // Extraemos la "basura tóxica" y guardamos el resto en 'safeUser'
+    const { 
+        password, 
+        resetCode, 
+        resetCodeExpires, 
+        updateCode, 
+        updateCodeExpires, 
+        phoneVerificationCode, 
+        phoneVerificationExpires, 
+        ...safeUser 
+    } = userData;
+    
+    return safeUser;
+};
+
+
 //crear alumno con membresia (usado en el dashboard de admin)
 export const createStudentWithMembership = async (req, res) => {
     try {
@@ -100,23 +121,38 @@ export const getUser = async (req, res) => {
 
 export const addUser = async (req, res) => {
     try {
-        const userData = { ...req.body };
-        
-        // (La validación de la contraseña que pusimos antes)
-        if (userData.password && userData.password.length < 6) {
+        // 🛡️ LISTA BLANCA: Solo sacamos lo que nos interesa para un nuevo usuario manual (Profesora/Admin)
+        const { name, email, password, phone, rol, speciality } = req.body;
+
+        if (!name || !email) {
+            return res.status(400).json({ status: 'error', error: 'El nombre y el correo son obligatorios.' });
+        }
+
+        if (password && password.length < 6) {
             return res.status(400).json({ status: 'error', error: 'La contraseña debe tener al menos 6 caracteres.' });
         }
 
-        if (userData.password) {
-            userData.password = await createHash(userData.password);
+        // Armamos el objeto limpio
+        const cleanUserData = {
+            name,
+            email,
+            rol: rol || 'alumno', // Aquí sí permitimos que el Admin elija el rol
+        };
+
+        if (phone) cleanUserData.phone = phone;
+        if (speciality) cleanUserData.speciality = speciality;
+        
+        if (password) {
+            cleanUserData.password = await createHash(password);
         }
 
-        const result = await userService.create(userData);
+        // Lo mandamos a la base de datos sin basura inyectada
+        const result = await userService.create(cleanUserData);
         res.status(201).json({ status: 'success', payload: result });
     } catch (error) {
         // 🔥 EL TRADUCTOR DE ERRORES DE MONGODB
         if (error.message.includes('E11000')) {
-            return res.status(400).json({ status: 'error', error: 'Ya existe una profesora o usuario con este correo electrónico.' });
+            return res.status(400).json({ status: 'error', error: 'Ya existe un usuario con este correo electrónico.' });
         }
         res.status(400).json({ status: 'error', error: error.message });
     }
@@ -124,19 +160,35 @@ export const addUser = async (req, res) => {
 
 export const updateUser = async (req, res) => {
     try {
-        const updateData = { ...req.body };
-        if (updateData.password) {
-            updateData.password = await createHash(updateData.password);
-        } else {
-            delete updateData.password;
+        // 🛡️ EL CANDADO: Lista Blanca (Whitelisting)
+        // Extraemos explícitamente SOLO los campos que un usuario tiene permitido tocar
+        const { name, phone, password } = req.body;
+
+        // Armamos un objeto limpio desde cero
+        const cleanUpdateData = {};
+
+        // Validamos e insertamos solo si existen
+        if (name) cleanUpdateData.name = name;
+
+        if (phone) {
+            cleanUpdateData.phone = phone;
+            cleanUpdateData.isPhoneVerified = false; // Se cambia el número, se pierde la verificación
         }
-        if (updateData.phone) {
-            updateData.isPhoneVerified = false; 
-        } else {
-            // Evitamos que alguien mande { isPhoneVerified: true } por Postman
-            delete updateData.isPhoneVerified; 
+
+        if (password) {
+            cleanUpdateData.password = await createHash(password);
         }
-        const result = await userService.update(req.params.uid, updateData);
+
+        // 👑 EXCEPCIÓN PARA ADMINS (Solo si tu panel de admin usa esta misma ruta para editar usuarios)
+        // Si tienes el middleware de JWT, 'req.user' debería existir. Verificamos que sea Dios.
+        if (req.user && (req.user.rol === 'admin' || req.user.role === 'admin')) {
+            if (req.body.rol) cleanUpdateData.rol = req.body.rol;
+            if (req.body.role) cleanUpdateData.rol = req.body.role; 
+            if (req.body.speciality) cleanUpdateData.speciality = req.body.speciality;
+        }
+
+        // Mandamos a guardar nuestro objeto limpio, ignorando por completo cualquier otra cosa (como { rol: 'admin' } enviado por un alumno)
+        const result = await userService.update(req.params.uid, cleanUpdateData);
         res.json({ status: 'success', payload: result });
     } catch (error) {
         res.status(400).json({ status: 'error', error: error.message });
@@ -173,7 +225,9 @@ export const getAllByRole = async (req, res) => {
 export const getProfessorsDirectory = async (req, res) => {
     try {
         const professors = await userService.getAll({ rol: 'profesor' });
-        res.json({ status: 'success', payload: professors });
+        // 🛡️ APLICAMOS EL FILTRO A LA LISTA
+        const safeProfessors = professors.map(sanitizeUser);
+        res.json({ status: 'success', payload: safeProfessors });
     } catch (error) {
         res.status(500).json({ status: 'error', error: error.message });
     }
@@ -193,7 +247,9 @@ export const getProfessors = async (req, res) => {
         const professors = await userService.getAll({ 
             rol: { $in: ['profesor', 'admin'] } 
         });
-        res.json({ status: 'success', payload: professors });
+        // 🛡️ APLICAMOS EL FILTRO A LA LISTA
+        const safeProfessors = professors.map(sanitizeUser);
+        res.json({ status: 'success', payload: safeProfessors });
     } catch (error) {
         res.status(500).json({ status: 'error', error: error.message });
     }

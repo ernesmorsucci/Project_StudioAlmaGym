@@ -6,6 +6,7 @@ import mongoose from 'mongoose'; // 👈 LIBRERÍA RESTAURADA
 import { createServer } from 'http'; 
 import { Server } from 'socket.io';  
 import { startCronJobs } from './utils/cron.js';
+//import mongoSanitize from 'express-mongo-sanitize';
 
 // 1. IMPORTAMOS ROUTERS
 import authRouter from './routes/auth.routes.js';
@@ -43,6 +44,7 @@ export { io };
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser()); 
+//app.use(mongoSanitize());
 
 // 5. CORS
 app.use(cors({
