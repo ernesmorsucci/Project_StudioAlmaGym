@@ -23,7 +23,7 @@ export const register = async (req, res) => {
             email,
             password: await createHash(password),
             phone: phone || null,
-            rol: rol || 'alumno',
+            rol: 'alumno', // 🛡️ AHORA SÍ: Forzado a fuego. Ignoramos lo que mande el frontend.
             speciality: speciality || []
         };
 
@@ -38,7 +38,9 @@ export const register = async (req, res) => {
 export const login = async (req, res) => {
     try {
         const { email, password } = req.body;
-
+        if (typeof email !== 'string' || typeof password !== 'string') {
+            return res.status(400).json({ error: "Formato de credenciales inválido. Intento de inyección bloqueado." });
+        }
         const user = await userService.findByEmail(email);
         if (!user || !await isValidPassword(user, password)) {
             return res.status(401).json({ error: "Credenciales inválidas" });
