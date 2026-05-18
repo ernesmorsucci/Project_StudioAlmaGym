@@ -68,10 +68,16 @@ const Auth = () => {
 
       navigate(getRedirectPath(response.payload), { replace: true });
     } catch (err) {
+      // 1. Intentamos atrapar el mensaje exacto que envía nuestro backend
+      const mensajeReal = err.response?.data?.error;
+
+      // 2. Seteamos el error: Si hay mensaje real, lo mostramos. Si no, usamos los genéricos.
       setBackendError(
-        isLogin
-          ? 'Credenciales incorrectas. Intenta de nuevo.'
-          : 'No pudimos crear tu cuenta. Revisa los datos e intenta de nuevo.'
+        mensajeReal || (
+          isLogin
+            ? 'Credenciales incorrectas. Intenta de nuevo.'
+            : 'No pudimos crear tu cuenta. Revisa los datos e intenta de nuevo.'
+        )
       );
     }
   };

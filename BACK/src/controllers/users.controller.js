@@ -12,6 +12,10 @@ export const createStudentWithMembership = async (req, res) => {
             return res.status(400).json({ status: 'error', error: 'Faltan datos obligatorios del usuario.' });
         }
 
+        if (password.length < 6) {
+            return res.status(400).json({ status: 'error', error: 'La contraseña debe tener al menos 6 caracteres.' });
+        }
+
         const hashedPassword = await createHash(password);
 
         const newUser = await userService.create({
@@ -97,6 +101,12 @@ export const getUser = async (req, res) => {
 export const addUser = async (req, res) => {
     try {
         const userData = { ...req.body };
+        
+        // (La validación de la contraseña que pusimos antes)
+        if (userData.password && userData.password.length < 6) {
+            return res.status(400).json({ status: 'error', error: 'La contraseña debe tener al menos 6 caracteres.' });
+        }
+
         if (userData.password) {
             userData.password = await createHash(userData.password);
         }
@@ -104,6 +114,10 @@ export const addUser = async (req, res) => {
         const result = await userService.create(userData);
         res.status(201).json({ status: 'success', payload: result });
     } catch (error) {
+        // 🔥 EL TRADUCTOR DE ERRORES DE MONGODB
+        if (error.message.includes('E11000')) {
+            return res.status(400).json({ status: 'error', error: 'Ya existe una profesora o usuario con este correo electrónico.' });
+        }
         res.status(400).json({ status: 'error', error: error.message });
     }
 };
@@ -253,7 +267,11 @@ export const verifyUpdate = async (req, res) => {
         }
 
         if (updates.password) {
-            dataToUpdate.password = await createHash(updates.password);
+            // 🔥 NUEVA VALIDACIÓN
+            if (updates.password.length < 6) {
+                return res.status(400).json({ status: "error", error: "La nueva contraseña debe tener al menos 6 caracteres." });
+            }
+            updates.password = await createHash(updates.password);
         }
 
         // Limpiamos códigos

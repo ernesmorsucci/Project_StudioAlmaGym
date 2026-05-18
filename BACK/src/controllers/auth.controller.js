@@ -13,6 +13,10 @@ export const register = async (req, res) => {
 
         const exists = await userService.findByEmail(email);
         if (exists) return res.status(400).json({ error: "El email ya está registrado" });
+        
+        if (password.length < 6) {
+            return res.status(400).json({ status: 'error', error: 'La contraseña debe tener al menos 6 caracteres.' });
+        }
 
         const newUser = {
             name,

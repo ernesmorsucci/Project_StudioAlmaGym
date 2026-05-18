@@ -45,29 +45,39 @@ const Sidebar = () => {
 
   const links = userRole === 'admin' ? adminLinks : userRole === 'profesor' ? professorLinks : studentLinks;
 
-  // Función inteligente para que los botones se pinten de verde
+  // 🔥 LA SOLUCIÓN DEFINITIVA: Función universal de ruteo
   const isLinkActive = (path) => {
+    // 1. Obtenemos qué tab está actualmente en la barra de direcciones
     const searchParams = new URLSearchParams(location.search);
     const currentTab = searchParams.get('tab');
 
+    // 2. Desarmamos el path del botón que estamos analizando (ej: "/admin?tab=alumnos" -> "/admin" y "tab=alumnos")
+    const [linkPath, linkQuery] = path.split('?');
+    const linkSearchParams = new URLSearchParams(linkQuery || '');
+    const linkTab = linkSearchParams.get('tab');
+
+    // 3. REGLA DE ORO: Si la ruta base del navegador (/perfil) no es la misma que la del botón (/admin), lo APAGAMOS de inmediato.
+    if (location.pathname !== linkPath) {
+      return false;
+    }
+
+    // 4. Si la ruta base SÍ coincide, entonces validamos cuál pestaña está activa
     if (userRole === 'admin') {
       const activeAdminTab = currentTab || 'dashboard';
-      return path.includes(`tab=${activeAdminTab}`);
-    } else if (userRole === 'profesor') {
-      if (!location.pathname.startsWith('/profesor')) return false;
-      if (path.includes('?tab=')) {
-        const linkTab = path.split('?tab=')[1];
-        return currentTab === linkTab;
-      }
-      return !currentTab || currentTab === 'inicio';
-    } else {
-      if (path.includes('?tab=')) {
-        const linkTab = path.split('?tab=')[1];
-        return currentTab === linkTab && location.pathname.startsWith('/inicio');
-      } else {
-        return location.pathname === path && (!currentTab || currentTab === 'inicio');
-      }
-    }
+      const targetAdminTab = linkTab || 'dashboard';
+      return activeAdminTab === targetAdminTab;
+    } 
+    
+    if (userRole === 'profesor') {
+      const activeProfTab = currentTab || 'inicio';
+      const targetProfTab = linkTab || 'inicio';
+      return activeProfTab === targetProfTab;
+    } 
+    
+    // Alumnos
+    const activeStudentTab = currentTab || 'inicio';
+    const targetStudentTab = linkTab || 'inicio';
+    return activeStudentTab === targetStudentTab;
   };
 
   return (
