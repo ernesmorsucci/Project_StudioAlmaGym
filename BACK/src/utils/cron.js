@@ -2,6 +2,7 @@ import cron from "node-cron";
 import { membershipService, paymentService } from "../services/index.service.js";
 import { recurrentScheduleService, classService, reserveService } from "../services/index.service.js";
 import reserveModel from '../dao/models/reserve.model.js';
+import holidayModel from '../dao/models/holiday.model.js';
 /**
  * CRON JOBS - Studio Alma
  * 
@@ -114,6 +115,16 @@ const classGenerator = cron.schedule('0 3 * * *', async () => {
         // 1. Determinar el día objetivo (Hoy + 14 días)
         const targetDate = new Date();
         targetDate.setDate(targetDate.getDate() + 14);
+        
+        // 🔥 BLOQUEO DE FERIADOS: Convertimos la fecha objetivo a formato 'YYYY-MM-DD' local
+        const targetDateStr = targetDate.toLocaleDateString('en-CA'); 
+        const isHoliday = await holidayModel.findOne({ date: targetDateStr });
+        
+        if (isHoliday) {
+            console.log(`[CRON] 🏖️ El día ${targetDate.toLocaleDateString('es-AR')} es feriado registrado (${isHoliday.description}). Saltando generación de clases.`);
+            return; // 👈 Frena el cron inmediatamente para este día
+        }
+
         const targetDayOfWeek = targetDate.getDay(); // 0 = Domingo, 1 = Lunes, etc.
 
         // 2. Traer todas las plantillas activas
@@ -166,7 +177,7 @@ const classGenerator = cron.schedule('0 3 * * *', async () => {
     }
 }, { scheduled: false });
 
-const absentDetector = cron.schedule('*/10 * * * *', async () => {
+const absentDetector = cron.schedule('*/30 * * * *', async () => {
     console.log('[CRON] Iniciando detector de Ausentes');
         try {
             const count = await reserveService.processAbsences();

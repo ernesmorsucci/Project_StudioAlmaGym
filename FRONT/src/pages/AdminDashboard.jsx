@@ -6,11 +6,10 @@ import CreatePlanForm from '../components/admin/CreatePlanForm';
 import CreateProfessorForm from '../components/admin/CreateProfessorForm';
 import StudentDetailModal from '../components/admin/StudentDetailModal';
 import api from '../services/api';
-import PaymentManager from '../components/admin/PaymentManager'; // <-- MÓDULO DE PAGOS LISTO
+import PaymentManager from '../components/admin/PaymentManager'; 
 import NotificationManager from '../components/admin/NotificationManager';
 import DashboardHome from '../components/admin/DashboardHome';
 import { showConfirm, showError } from '../utils/alerts';
-
 
 const AdminDashboard = () => {
   const [searchParams] = useSearchParams();
@@ -23,6 +22,13 @@ const AdminDashboard = () => {
   const [editingSchedule, setEditingSchedule] = useState(null);
   const [schedules, setSchedules] = useState([]);
   const [loadingSchedules, setLoadingSchedules] = useState(false);
+
+  // ==========================================
+  // ESTADOS PARA FERIADOS (NUEVO)
+  // ==========================================
+  const [holidays, setHolidays] = useState([]);
+  const [loadingHolidays, setLoadingHolidays] = useState(false);
+  const [newHoliday, setNewHoliday] = useState({ date: '', description: '' });
 
   // ==========================================
   // ESTADOS PARA ALUMNOS
@@ -60,6 +66,14 @@ const AdminDashboard = () => {
       const response = await api.get('/schedules');
       setSchedules(response.data.payload);
     } catch (error) { console.error(error); } finally { setLoadingSchedules(false); }
+  };
+
+  const fetchHolidays = async () => {
+    try {
+      setLoadingHolidays(true);
+      const response = await api.get('/holidays');
+      setHolidays(response.data.payload || []);
+    } catch (error) { console.error(error); } finally { setLoadingHolidays(false); }
   };
 
   const fetchStudents = async () => {
@@ -105,7 +119,10 @@ const AdminDashboard = () => {
   };
 
   useEffect(() => {
-    if (activeTab === 'horarios') fetchSchedules();
+    if (activeTab === 'horarios') {
+      fetchSchedules();
+      fetchHolidays();
+    }
     if (activeTab === 'alumnos') fetchStudents();
     if (activeTab === 'planes') fetchPlans();
     if (activeTab === 'profesoras') fetchProfessorsDashboard();
@@ -146,6 +163,39 @@ const AdminDashboard = () => {
         await api.delete(`/schedules/${id}`);
         fetchSchedules();
       } catch (error) { showError("Hubo un error al eliminar el horario."); }
+    }
+  };
+
+  // ==========================================
+  // LÓGICA DE FERIADOS
+  // ==========================================
+  const handleAddHoliday = async (e) => {
+    e.preventDefault();
+    try {
+      await api.post('/holidays', newHoliday);
+      setNewHoliday({ date: '', description: '' });
+      fetchHolidays();
+    } catch (error) {
+      showError(error.response?.data?.error || "Error al registrar el feriado");
+    }
+  };
+
+  const handleDeleteHoliday = async (id) => {
+    const confirmed = await showConfirm({
+      title: '¿Eliminar feriado?',
+      text: 'El sistema volverá a generar clases automáticamente en esta fecha a futuro.',
+      confirmButtonText: 'Eliminar',
+      icon: 'warning',
+      confirmButtonColor: '#E07A5F',
+    });
+
+    if (confirmed) {
+      try {
+        await api.delete(`/holidays/${id}`);
+        fetchHolidays();
+      } catch (error) {
+        showError("No se pudo eliminar el feriado.");
+      }
     }
   };
 
@@ -218,26 +268,20 @@ const AdminDashboard = () => {
   };
 
   const getProfessorStats = (professorId) => {
-    const now = new Date(); // Obtenemos la fecha y hora actual
-
-    // 1. Buscamos todas las clases del mes asignadas a este profesor
+    const now = new Date(); 
     const professorClasses = monthlyClasses.filter(classItem => 
       getClassProfessorId(classItem)?.toString() === professorId?.toString()
     );
-
-    // 2. Filtramos SOLO las clases cuya fecha ya pasó (o está pasando)
     const workedClasses = professorClasses.filter(classItem => 
       new Date(classItem.dateTime) <= now
     );
-
-    // 3. Sumamos solo las horas de las clases trabajadas
     const totalHours = workedClasses.reduce((acc, classItem) => 
       acc + getClassDurationHours(classItem), 0
     );
 
     return {
-      assignedClasses: professorClasses.length, // Se muestran todas las del mes
-      workedHours: totalHours                   // Solo suma las que ya ocurrieron
+      assignedClasses: professorClasses.length, 
+      workedHours: totalHours                   
     };
   };
 
@@ -304,75 +348,161 @@ const AdminDashboard = () => {
       )}
 
       {/* ========================================== */}
-      {/* VISTA: GESTIÓN DE HORARIOS                */}
+      {/* VISTA: GESTIÓN DE HORARIOS Y FERIADOS       */}
       {/* ========================================== */}
       {activeTab === 'horarios' && (
-        <div className="animate-fade-in">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h2 className="text-3xl font-serif text-alma-text">Gestión de horarios</h2>
-              <p className="text-sm text-gray-500 mt-1">Configura las plantillas semanales y asigna profesoras.</p>
+        <div className="animate-fade-in space-y-12">
+          
+          {/* BLOQUE DE AGENDAS/HORARIOS SEMANALES */}
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <div>
+                <h2 className="text-3xl font-serif text-alma-text">Gestión de horarios</h2>
+                <p className="text-sm text-gray-500 mt-1">Configura las plantillas semanales y asigna profesoras.</p>
+              </div>
+              {!showScheduleForm && (
+                <button
+                  onClick={() => { setEditingSchedule(null); setShowScheduleForm(true); }}
+                  className="bg-[#6B7A5C] text-white px-5 py-2.5 rounded-lg font-medium hover:bg-opacity-90 shadow-sm"
+                >
+                  + Nuevo horario
+                </button>
+              )}
             </div>
-            {!showScheduleForm && (
-              <button
-                onClick={() => { setEditingSchedule(null); setShowScheduleForm(true); }}
-                className="bg-[#6B7A5C] text-white px-5 py-2.5 rounded-lg font-medium hover:bg-opacity-90 shadow-sm"
-              >
-                + Nuevo horario
-              </button>
+
+            {showScheduleForm && (
+              <CreateScheduleForm
+                initialData={editingSchedule}
+                onSuccess={handleScheduleSuccess}
+                onCancel={() => { setShowScheduleForm(false); setEditingSchedule(null); }}
+              />
             )}
-          </div>
 
-          {showScheduleForm && (
-            <CreateScheduleForm
-              initialData={editingSchedule}
-              onSuccess={handleScheduleSuccess}
-              onCancel={() => { setShowScheduleForm(false); setEditingSchedule(null); }}
-            />
-          )}
-
-          <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden overflow-x-auto">
-            <table className="w-full text-left text-sm min-w-[600px]">
-              <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 font-medium">
-                <tr>
-                  <th className="px-6 py-4">CLASE</th><th className="px-6 py-4">DÍAS</th>
-                  <th className="px-6 py-4">HORA</th><th className="px-6 py-4">PROFESORA</th>
-                  <th className="px-6 py-4">CUPOS</th><th className="px-6 py-4 text-right">ACCIONES</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {loadingSchedules && <tr><td colSpan="6" className="px-6 py-8 text-center text-gray-400">Cargando horarios...</td></tr>}
-                {!loadingSchedules && schedules.length === 0 && <tr><td colSpan="6" className="px-6 py-10 text-center text-gray-400">No hay horarios configurados todavía.</td></tr>}
-                {!loadingSchedules && schedules.map((schedule) => (
-                  <tr key={schedule._id} className="hover:bg-gray-50">
-                    <td className="px-6 py-4"><div className="font-medium text-alma-text">{schedule.name}</div><div className="text-xs text-gray-400">{schedule.classType}</div></td>
-                    <td className="px-6 py-4 text-gray-600">{formatDays(schedule.daysWeek)}</td>
-                    <td className="px-6 py-4 text-gray-600">{schedule.startTime} - {schedule.endTime}</td>
-                    <td className="px-6 py-4 text-gray-600">{schedule.professorId ? schedule.professorId.name : 'Sin asignar'}</td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3"> {/* Aumentamos un poco el gap para que respire */}
-                        <div className="w-full bg-gray-100 rounded-full h-1.5 max-w-[60px] hidden sm:block">
-                          <div
-                            className="bg-alma-olive h-1.5 rounded-full"
-                            style={{ width: `${schedule.maxQuota > 0 ? ((schedule.registeredCount || 0) / schedule.maxQuota) * 100 : 0}%` }}
-                          ></div>
-                        </div>
-
-                        {/* 🔥 LA SOLUCIÓN: Usamos whitespace-nowrap para forzar una sola línea */}
-                        <span className="text-gray-600 font-bold whitespace-nowrap text-sm">
-                          Max {schedule.maxQuota}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 flex justify-end gap-3">
-                      <button onClick={() => handleEditClick(schedule)} className="px-3 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">Editar</button>
-                      <button onClick={() => handleDeleteClick(schedule._id)} className="px-3 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors">Eliminar</button>
-                    </td>
+            <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden overflow-x-auto">
+              <table className="w-full text-left text-sm min-w-[600px]">
+                <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 font-medium">
+                  <tr>
+                    <th className="px-6 py-4">CLASE</th>
+                    <th className="px-6 py-4">DÍAS</th>
+                    <th className="px-6 py-4">HORA</th>
+                    <th className="px-6 py-4">PROFESORA</th>
+                    <th className="px-6 py-4">CUPOS</th>
+                    <th className="px-6 py-4 text-right">ACCIONES</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {loadingSchedules && <tr><td colSpan="6" className="px-6 py-8 text-center text-gray-400">Cargando horarios...</td></tr>}
+                  {!loadingSchedules && schedules.length === 0 && <tr><td colSpan="6" className="px-6 py-10 text-center text-gray-400">No hay horarios configurados todavía.</td></tr>}
+                  {!loadingSchedules && schedules.map((schedule) => (
+                    <tr key={schedule._id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4">
+                        <div className="font-medium text-alma-text">{schedule.name}</div>
+                        <div className="text-xs text-gray-400">{schedule.classType}</div>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">{formatDays(schedule.daysWeek)}</td>
+                      <td className="px-6 py-4 text-gray-600">{schedule.startTime} - {schedule.endTime}</td>
+                      <td className="px-6 py-4 text-gray-600">{schedule.professorId ? schedule.professorId.name : 'Sin asignar'}</td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3"> 
+                          <div className="w-full bg-gray-100 rounded-full h-1.5 max-w-[60px] hidden sm:block">
+                            <div
+                              className="bg-alma-olive h-1.5 rounded-full"
+                              style={{ width: `${schedule.maxQuota > 0 ? ((schedule.registeredCount || 0) / schedule.maxQuota) * 100 : 0}%` }}
+                            ></div>
+                          </div>
+                          <span className="text-gray-600 font-bold whitespace-nowrap text-sm">
+                            Max {schedule.maxQuota}
+                          </span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 flex justify-end gap-3">
+                        <button onClick={() => handleEditClick(schedule)} className="px-3 py-1 bg-gray-100 text-gray-600 rounded hover:bg-gray-200 transition-colors">Editar</button>
+                        <button onClick={() => handleDeleteClick(schedule._id)} className="px-3 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors">Eliminar</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
+
+          {/* LINEA DIVISORIA DE SECCIÓN */}
+          <div className="border-t border-gray-200 pt-4"></div>
+
+          {/* BLOQUE DE DÍAS FERIADOS / CIERRES */}
+          <div>
+            <div className="mb-6">
+              <h3 className="text-2xl font-serif text-alma-text">Días Feriados / Cierres</h3>
+              <p className="text-sm text-gray-500 mt-1">Configura fechas especiales donde el gimnasio permanecerá cerrado y no se abrirán agendas automáticas.</p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+              {/* Formulario rápido */}
+              <div className="bg-white p-6 rounded-xl border border-gray-200 shadow-sm h-fit">
+                <h4 className="text-base font-bold text-gray-800 mb-4">Registrar Día Libre</h4>
+                <form onSubmit={handleAddHoliday} className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1.5">Fecha del feriado</label>
+                    <input 
+                      type="date" 
+                      required
+                      value={newHoliday.date}
+                      onChange={(e) => setNewHoliday({...newHoliday, date: e.target.value})}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-alma-olive text-sm text-gray-700"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-500 mb-1.5">Motivo / Descripción</label>
+                    <input 
+                      type="text" 
+                      placeholder="Ej: Año Nuevo, Cierre por reformas..."
+                      required
+                      value={newHoliday.description}
+                      onChange={(e) => setNewHoliday({...newHoliday, description: e.target.value})}
+                      className="w-full p-2.5 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-alma-olive text-sm text-gray-700"
+                    />
+                  </div>
+                  <button type="submit" className="w-full bg-[#6B7A5C] text-white py-2.5 rounded-lg font-bold hover:bg-opacity-90 transition-colors shadow-sm text-sm">
+                    Guardar Feriado
+                  </button>
+                </form>
+              </div>
+
+              {/* Tabla de feriados */}
+              <div className="md:col-span-2 bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden overflow-x-auto">
+                <table className="w-full text-left text-sm min-w-[400px]">
+                  <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 font-medium">
+                    <tr>
+                      <th className="px-6 py-4">FECHA FIESTA</th>
+                      <th className="px-6 py-4">MOTIVO</th>
+                      <th className="px-6 py-4 text-right">ACCIONES</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {loadingHolidays && <tr><td colSpan="3" className="px-6 py-8 text-center text-gray-400">Cargando calendario...</td></tr>}
+                    {!loadingHolidays && holidays.length === 0 && <tr><td colSpan="3" className="px-6 py-10 text-center text-gray-400">No hay feriados programados todavía.</td></tr>}
+                    {!loadingHolidays && holidays.map((holiday) => (
+                      <tr key={holiday._id} className="hover:bg-gray-50">
+                        <td className="px-6 py-4 font-bold text-alma-text">
+                          {new Date(holiday.date + 'T00:00:00').toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' })}
+                        </td>
+                        <td className="px-6 py-4 text-gray-600">{holiday.description}</td>
+                        <td className="px-6 py-4 text-right">
+                          <button 
+                            onClick={() => handleDeleteHoliday(holiday._id)} 
+                            className="px-3 py-1 bg-red-50 text-red-600 rounded hover:bg-red-100 transition-colors text-xs font-bold"
+                          >
+                            Eliminar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
         </div>
       )}
 
@@ -619,7 +749,7 @@ const AdminDashboard = () => {
       )}
 
       {/* ========================================== */}
-      {/* VISTA: GESTIÓN DE PAGOS (NUEVO)            */}
+      {/* VISTA: GESTIÓN DE PAGOS                    */}
       {/* ========================================== */}
       {activeTab === 'pagos' && (
         <PaymentManager />

@@ -25,6 +25,14 @@ const schema = new mongoose.Schema({
         type: Array,
         default: []
     },
+    emergencyContact: {
+        type: String,
+        default: ''
+    },
+    healthNotes: {
+        type: String,
+        default: ''
+    },
     phone: { 
         type: String,
         default: "" 
@@ -41,25 +49,23 @@ const schema = new mongoose.Schema({
         type: Date, 
         default: null 
     },
-    emergencyContact: {
-        type: String,
-        default: ''
+    
+    // ==========================================
+    // MÓDULO DE SEGURIDAD (2FA)
+    // ==========================================
+    isEmailVerified: { 
+        type: Boolean, 
+        default: false 
     },
-    healthNotes: {
-        type: String,
-        default: ''
+    updateCode: { 
+        type: String, 
+        default: null 
     },
-    // ------------------------------------------
-    resetCode: {
-        type: String,
-        default: null
-    },
-    resetCodeExpires: {
-        type: Date,
-        default: null
+    updateCodeExpires: { 
+        type: Date, 
+        default: null 
     }
 }, { timestamps: true });
 
-const userModel = mongoose.model(collection, schema);
-
-export default userModel;
+const usersModel = mongoose.model(collection, schema);
+export default usersModel;

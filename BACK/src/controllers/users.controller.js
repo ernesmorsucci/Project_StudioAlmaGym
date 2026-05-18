@@ -190,24 +190,35 @@ export const getProfessors = async (req, res) => {
 export const requestUpdateCode = async (req, res) => {
     try {
         const { newEmail, changingPassword } = req.body;
-        // Protección extra por si el token usa .id en lugar de ._id
         const userId = req.user._id || req.user.id; 
+
+        // 1. Buscamos al usuario real
+        const user = await userService.getById(userId);
+        
+        // 2. 🛡️ BLOQUEO DE SEGURIDAD: No puede cambiar contraseña si su email no está verificado
+        if (changingPassword && user.isEmailVerified === false) {
+            return res.status(403).json({ 
+                status: 'error', 
+                error: 'Debes verificar tu email principal antes de poder cambiar tu contraseña.' 
+            });
+        }
 
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         const expires = new Date(Date.now() + 15 * 60 * 1000); 
 
-        // 🕵️‍♂️ DEBUG: Confirmar que estamos guardando el código
         console.log(`\n[2FA] Generando código ${code} para el usuario ${userId}`);
 
+        // 3. Guardamos el código (usando los nombres correctos del modelo)
         await userService.update(userId, {
-            resetCode: code,
-            resetCodeExpires: expires
+            updateCode: code,
+            updateCodeExpires: expires
         });
 
-        const targetEmail = newEmail ? newEmail : req.user.email;
+        // 4. Enviamos al correo. Si cambia email, va al nuevo; si cambia pass, va al actual.
+        const targetEmail = newEmail ? newEmail : user.email;
         await emailService.sendRecoveryCode(targetEmail, code);
 
-        res.status(200).json({ status: 'success', message: 'Código de verificación enviado.' });
+        res.status(200).json({ status: 'success', message: 'Código de seguridad enviado.' });
     } catch (error) {
         console.error("Error en requestUpdateCode:", error);
         res.status(500).json({ status: 'error', error: 'Error al generar el código de seguridad.' });
@@ -219,24 +230,49 @@ export const verifyUpdate = async (req, res) => {
         const userId = req.user._id || req.user.id;
         const { code, updates } = req.body;
 
-        const user = await usersService.getUserById(userId);
+        // 1. Buscamos por la vía correcta (Capa de Servicios)
+        const user = await userService.getById(userId);
 
-        // Validaciones de código (las que ya tenés para email/pass)
+        console.log("🔍 1. Petición de verificación recibida. Updates:", updates);
+
+        if (!user) return res.status(404).json({ status: "error", error: "Usuario no encontrado" });
+
+        // Validaciones de seguridad
         if (user.updateCode !== code) return res.status(400).json({ status: "error", error: "Código incorrecto" });
         if (new Date() > user.updateCodeExpires) return res.status(400).json({ status: "error", error: "Código expirado" });
 
-        // 🔥 LA CLAVE: Si el usuario está verificando un cambio que incluye teléfono
-        if (updates.phone) {
-            updates.isPhoneVerified = true; 
+        // 2. Armamos un objeto LIMPIO exclusivo para actualizar
+        const dataToUpdate = { ...updates };
+
+        if (updates.email) {
+            dataToUpdate.isEmailVerified = true;
         }
 
-        const updatedUser = await usersService.update(userId, updates);
+        if (updates.phone) {
+            dataToUpdate.isPhoneVerified = true; 
+        }
+
+        if (updates.password) {
+            dataToUpdate.password = await createHash(updates.password);
+        }
 
         // Limpiamos códigos
-        await usersService.update(userId, { updateCode: null, updateCodeExpires: null });
+        dataToUpdate.updateCode = null;
+        dataToUpdate.updateCodeExpires = null;
 
-        res.status(200).json({ status: "success", payload: updatedUser });
+        console.log("🔍 2. Objeto dataToUpdate que se enviará a MongoDB:", dataToUpdate);
+        // 3. Enviamos el paquete completo a la capa de Servicios (Buenas prácticas intactas)
+        await userService.update(userId, dataToUpdate);
+
+        // 4. Volvemos a pedir el usuario para obtener los datos 100% frescos de la DB
+        const freshUser = await userService.getById(userId); 
+        
+        console.log("🔍 3. Usuario fresco desde la DB. ¿Se guardó el isEmailVerified?:", freshUser.isEmailVerified);
+
+        // 5. Se lo mandamos a React
+        res.status(200).json({ status: "success", payload: freshUser });
     } catch (error) {
+        console.error("Error en verifyUpdate:", error);
         res.status(500).json({ status: "error", error: error.message });
     }
 };

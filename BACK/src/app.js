@@ -18,7 +18,7 @@ import planRouter from './routes/plan.routes.js';
 import recurrentScheduleRouter from './routes/recurrentSchedule.routes.js';
 import reserveRouter from './routes/reserve.routes.js';
 import usersRouter from './routes/users.routes.js';
-
+import holidayRouter from './routes/holiday.routes.js';
 
 const app = express();
 
@@ -62,7 +62,7 @@ app.use('/api/plans', planRouter);
 app.use('/api/schedules', recurrentScheduleRouter);
 app.use('/api/reserves', reserveRouter);
 app.use('/api/users', usersRouter);
-
+app.use('/api/holidays', holidayRouter);
 
 startCronJobs();
 // 7. INICIALIZACIÓN DEL SERVIDOR

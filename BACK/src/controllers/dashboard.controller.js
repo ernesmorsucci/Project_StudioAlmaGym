@@ -20,11 +20,25 @@ export const getStudentDashboard = async (req, res) => {
 
         const plan = await planService.getBy({ _id: membership.planId });
 
-        // 2. Buscamos reservas 'reserved'
-        const reservationsRaw = await reserveService.getAll({ studentId: idUsuario, status: 'reserved' });
+        // 2. Traemos TODAS las reservas del mes actual para calcular el uso real
+        const now = new Date();
+        const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+        const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+
+        // Buscamos todas las reservas de este mes que NO estén canceladas ni ausentes
+        const allMonthlyValidReserves = await reserveService.getAll({ 
+            studentId: idUsuario,
+            date: { $gte: startOfMonth, $lte: endOfMonth },
+            status: { $in: ['reserved', 'attended'] } // 🔥 Contamos las reservadas y las asistidas
+        });
+
+        const actualUsedClasses = allMonthlyValidReserves.length;
+
+        // 3. Para la lista de "Próximas Clases", filtramos solo las 'reserved' que sean a futuro
+        const upcomingReservations = allMonthlyValidReserves.filter(r => r.status === 'reserved' && new Date(r.date) >= now);
         
-        // 3. Formateamos y traemos datos de clases/profesores
-        const formattedReservations = await Promise.all(reservationsRaw.map(async (reserva) => {
+        // 4. Formateamos y traemos datos de clases/profesores
+        const formattedReservations = await Promise.all(upcomingReservations.map(async (reserva) => {
             const classData = await classService.getBy({ _id: reserva.scheduleId }); 
             
             let instructorName = 'Por asignar';
@@ -56,7 +70,8 @@ export const getStudentDashboard = async (req, res) => {
                     status: membership.status,
                     planName: plan ? plan.name : 'Plan Studio',
                     expireDate: membership.expireDate,
-                    usedClasses: membership.usedClassesThisMonth || 0,
+                    // 🔥 USAMOS EL CÁLCULO EN TIEMPO REAL
+                    usedClasses: actualUsedClasses, 
                     totalClasses: plan ? (plan.weeklyClasses * 4) : 0 
                 },
                 nextPayment: { amount: plan ? plan.price : 0 },
