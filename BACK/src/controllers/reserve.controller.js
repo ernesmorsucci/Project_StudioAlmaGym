@@ -1,4 +1,4 @@
-import { reserveService } from "../services/index.service.js";
+import { reserveService, classService } from '../services/index.service.js';
 // 🔥 IMPORTAMOS LOS MODELOS DIRECTAMENTE PARA PODER POPULAR (Traer datos anidados)
 import reserveModel from "../dao/models/reserve.model.js";
 import classModel from "../dao/models/class.model.js";
@@ -46,15 +46,55 @@ export const createReserve = async (req, res) => {
     }
 };
 
-// 2. Cancelar una reserva
 export const cancelReserve = async (req, res) => {
     try {
-        const { rid } = req.params;
-        const result = await reserveService.cancelReserve(rid);
-        res.status(200).json({ status: "success", message: "Reserva cancelada correctamente.", payload: result });
+        // 1. Usamos 'rid' tal como lo reveló el console.log
+        const reserveId = req.params.rid; 
+        
+        // 2. Usamos 'getBy' que es el método que tu arquitectura realmente soporta
+        const reserve = await reserveService.getBy({ _id: reserveId });
+        
+        if (!reserve) {
+            console.log("❌ No se encontró la reserva con ID:", reserveId);
+            return res.status(404).json({ status: 'error', error: "Reserva no encontrada" });
+        }
+
+        // 🛡️ CAPA 1: Defensa por Estado (Cuidando al Cron Job)
+        if (reserve.status === 'attended' || reserve.status === 'absent' || reserve.status === 'cancelled') {
+            return res.status(400).json({ 
+                status: 'error', 
+                error: "No puedes cancelar una reserva que ya ha sido procesada o finalizada." 
+            });
+        }
+
+        // 🛡️ CAPA 2: Defensa por Tiempo (Evitando Viajes en el Tiempo)
+        // Usamos getBy también para la clase, por si classService funciona igual que reserveService
+        const classData = await classService.getBy({ _id: reserve.classId });
+
+        if (classData) {
+            const classDate = new Date(classData.date); // Verifica que tu modelo use 'date' o cámbialo por 'startDate'
+            const now = new Date();
+            
+            if (now >= classDate) {
+                return res.status(400).json({ 
+                    status: 'error', 
+                    error: "El tiempo para cancelar esta clase ya ha expirado." 
+                });
+            }
+        }
+
+       // 🟢 3. Lógica de cancelación real (Llamamos a tu motor inteligente)
+        const updatedReserve = await reserveService.cancelReserve(reserveId);
+        
+        // 🟢 4. Respondemos al Frontend
+        res.status(200).json({ 
+            status: 'success', 
+            message: 'Reserva cancelada correctamente. Si había lista de espera, se ha notificado al siguiente alumno.',
+            payload: updatedReserve 
+        });
     } catch (error) {
-        console.error("Error al cancelar reserva:", error.message);
-        res.status(400).json({ status: "error", error: error.message });
+        console.error("Error al cancelar:", error);
+        res.status(500).json({ status: 'error', error: "Error interno del servidor" });
     }
 };
 
