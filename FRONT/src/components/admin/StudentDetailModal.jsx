@@ -153,6 +153,7 @@ const StudentDetailModal = ({ student, onClose }) => {
         }
 
         try {
+            // GUARDAR PAGO EN BASE DE DATOS
             await api.post('/payments', {
                 studentId: student.id,
                 planId: paymentData.planId,
@@ -160,7 +161,21 @@ const StudentDetailModal = ({ student, onClose }) => {
                 method: paymentData.method
             });
 
-            await showSuccess("Pago exitoso. La membresía se ha actualizado correctamente.");
+            // ENVIAR NOTIFICACIÓN AL ESTUDIANTE
+            try {
+                const receiptData = {
+                    subject: "Pago Confirmado",
+                    message: `Se confirmó el pago de $${paymentData.amount} por el plan seleccionado.`,
+                    targetType: "student",
+                    resolvedIds: [student.id]
+                };
+                await api.post('/notifications', receiptData);
+                showSuccess("Pago registrado y notificación enviada al estudiante");
+            } catch (notifError) {
+                console.error("Advertencia: Error al enviar notificación:", notifError);
+                showWarning("Pago registrado pero fallo el envío de notificación. Revisa la conexión de email.");
+            }
+
             setShowPaymentForm(false);
             onClose(); 
         } catch (error) {

@@ -3,7 +3,7 @@ import { useSearchParams } from 'react-router-dom';
 import { Loader } from 'lucide-react';
 import api from '../services/api';
 import { useAuth } from '../contexts/AuthContext';
-import { showError, showSuccess, showConfirm } from '../utils/alerts';
+import { showError, showSuccess, showConfirm, showWarning } from '../utils/alerts';
 import ProfessorClassesTab from '../components/professor/ProfessorClassesTab';
 import ProfessorHomeTab from '../components/professor/ProfessorHomeTab';
 import ProfessorHoursTab from '../components/professor/ProfessorHoursTab';
@@ -205,6 +205,31 @@ const ProfessorDashboard = () => {
     }
   };
 
+  const handleCancelClass = async (classItem) => {
+    // 1️⃣ PEDIR CONFIRMACIÓN
+    const isConfirmed = await showConfirm(
+      "¿Cancelar esta clase?",
+      `Se cancelarán todas las reservas de "${classItem.name}" y se notificará a los estudiantes inscritos.`
+    );
+    if (!isConfirmed) return;
+
+    try {
+      setUpdatingReserve(`cancel-${classItem._id}`);
+
+      const response = await api.delete(`/classes/${classItem._id}/cancel`);
+      const notified = response.data?.payload?.studentsNotified ?? 0;
+      const cancelled = response.data?.payload?.cancelledReserves ?? 0;
+
+      showSuccess(`✓ Clase cancelada. ${cancelled} reserva(s) cancelada(s) y ${notified} estudiante(s) notificado(s).`);
+      await loadData();
+    } catch (error) {
+      console.error("Error al cancelar la clase:", error);
+      showError(error.response?.data?.error || "Error al cancelar la clase. Intenta nuevamente.");
+    } finally {
+      setUpdatingReserve(null);
+    }
+  };
+
   const goToTab = (tab) => setSearchParams(tab === 'inicio' ? {} : { tab });
 
   if (loading) {
@@ -236,6 +261,7 @@ const ProfessorDashboard = () => {
           getHydratedStudent={getHydratedStudent}
           updatingReserve={updatingReserve}
           onMarkAttendance={handleMarkAttendance}
+          onCancelClass={handleCancelClass}
         />
       )}
 

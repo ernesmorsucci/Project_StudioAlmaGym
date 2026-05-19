@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import api from '../../services/api';
 import PaymentReceiptModal from './PaymentReceiptModal';
-import { showError, showWarning } from '../../utils/alerts';
+import { showError, showWarning, showSuccess } from '../../utils/alerts';
 
 const PaymentManager = () => {
     // ESTADOS DE VISTA Y MODALES
@@ -93,7 +93,23 @@ const PaymentManager = () => {
                 ...paymentData,
                 amount: Number(paymentData.amount)
             });
-            
+
+            // notificacion de pago
+            try {
+                const receiptData = {
+                    subject: "Pago Confirmado",
+                    message: `Se confirmó el pago de $${paymentData.amount} por el plan seleccionado.`,
+                    targetType: "student",
+                    resolvedIds: [paymentData.studentId]
+                };
+                await api.post('/notifications', receiptData);
+                showSuccess("Pago registrado y notificación enviada al estudiante");
+            } catch (notifError) {
+                console.error("Advertencia: Error al enviar notificación:", notifError);
+                showWarning("Pago registrado pero fallo el envío de notificación. Revisa la conexión de email.");
+            }
+
+            //LIMPIAR FORMULARIO Y ACTUALIZAR DATOS
             setPaymentData({ studentId: '', planId: '', amount: '', method: 'Transferencia' });
             await fetchInitialData(); // Recargamos todo para actualizar las tarjetas y la tabla
             setView('history'); // Volvemos al historial automáticamente

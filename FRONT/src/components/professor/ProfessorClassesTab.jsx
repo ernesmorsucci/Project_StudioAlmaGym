@@ -1,6 +1,6 @@
 import React from 'react';
 // Antes: import { Check, Loader, X } from 'lucide-react';
-import { Check, Loader, X, Calendar, Clock, Users } from 'lucide-react';
+import { Check, Loader, X, Calendar, Clock, Users, AlertTriangle } from 'lucide-react';
 import { EmptyState } from './ProfessorShared';
 import { formatDate, formatTime, getPlanLabel, getStatusLabel } from './professorDashboardUtils';
 
@@ -10,6 +10,7 @@ const ProfessorClassesTab = ({
   getHydratedStudent,
   updatingReserve,
   onMarkAttendance,
+  onCancelClass,
 }) => (
   <section className="max-w-3xl animate-fade-in">
     <h1 className="font-serif text-4xl text-alma-text md:text-5xl">Mis clases</h1>
@@ -41,13 +42,35 @@ const ProfessorClassesTab = ({
                   </div>
                 </div>
 
-                {/* Derecha: Contador de Cupos */}
-                <div className="flex w-fit items-center gap-2 rounded-xl bg-alma-bg px-4 py-2.5 text-alma-olive border border-alma-olive/20 shadow-sm">
-                  <Users className="h-5 w-5" />
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-xl font-bold">{reserves.length}</span>
-                    <span className="text-sm font-medium opacity-80">/ {classItem.maxQuota || '-'} alumnos</span>
+                {/* Derecha: Contador de Cupos + Botón Cancelar */}
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex w-fit items-center gap-2 rounded-xl bg-alma-bg px-4 py-2.5 text-alma-olive border border-alma-olive/20 shadow-sm">
+                    <Users className="h-5 w-5" />
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-xl font-bold">{reserves.length}</span>
+                      <span className="text-sm font-medium opacity-80">/ {classItem.maxQuota || '-'} alumnos</span>
+                    </div>
                   </div>
+                  
+                  {/* 🔥 BOTÓN CANCELAR CLASE */}
+                  <button
+                    onClick={() => onCancelClass(classItem)}
+                    disabled={Boolean(updatingReserve?.startsWith('cancel'))}
+                    title="Cancelar esta clase"
+                    className="flex h-10 items-center gap-2 rounded-xl bg-red-50 px-4 py-2.5 border border-red-300 text-red-600 font-bold text-sm transition-all hover:bg-red-100 disabled:opacity-50"
+                  >
+                    {updatingReserve === `cancel-${classItem._id}` ? (
+                      <>
+                        <Loader className="h-4 w-4 animate-spin" />
+                        Cancelando...
+                      </>
+                    ) : (
+                      <>
+                        <AlertTriangle className="h-4 w-4" />
+                        Cancelar Clase
+                      </>
+                    )}
+                  </button>
                 </div>
               </div>
 
