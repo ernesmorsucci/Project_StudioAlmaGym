@@ -152,7 +152,7 @@ const AdminDashboard = () => {
   const handleDeleteClick = async (id) => {
     const confirmed = await showConfirm({
       title: 'Eliminar horario',
-      text: '¿Estás seguro de que deseas eliminar este horario?',
+      text: '¿Estás seguro de que deseas eliminar este horario? También se eliminarán todas las clases asignadas a este horario.',
       confirmButtonText: 'Eliminar',
       icon: 'warning',
       confirmButtonColor: '#E07A5F',

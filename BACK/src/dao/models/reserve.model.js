@@ -13,6 +13,11 @@ const schema = new mongoose.Schema({
         ref: 'Class', // <-- CAMBIAMOS 'Schedule' por 'Class' para que coincida con tu modelo
         required: true
     },
+    classId: {
+        type: mongoose.SchemaTypes.ObjectId,
+        ref: 'Class',
+        required: false
+    },
     date: {
         type: Date,
         required: true

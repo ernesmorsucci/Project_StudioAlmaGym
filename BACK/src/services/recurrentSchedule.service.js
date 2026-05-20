@@ -1,5 +1,7 @@
 import RecurrentScheduleDao from '../dao/recurrentSchedule.dao.js';
 import ClassDao from '../dao/class.dao.js';
+import reserveModel from '../dao/models/reserve.model.js';
+import membershipModel from '../dao/models/membership.model.js';
 
 const recurrentScheduleDAO = new RecurrentScheduleDao();
 const classDAO = new ClassDao();
@@ -98,17 +100,233 @@ export default class RecurrentScheduleService {
         return newSchedule;
     }
 
-    // =========================================================
     // ACTUALIZACIÓN Y BORRADO
-    // =========================================================
     async updateSchedule(id, data) {
-        // Por ahora actualizamos solo la plantilla.
-        // A futuro implementaremos la lógica de "Efecto dominó" para clases sin reservas.
-        return await recurrentScheduleDAO.update(id, data);
+        const schedule = await recurrentScheduleDAO.getBy({ _id: id });
+        if (!schedule) {
+            throw new Error('Horario no encontrado.');
+        }
+
+        const nextScheduleData = {
+            name: data.name ?? schedule.name,
+            classType: data.classType ?? schedule.classType ?? 'Mat',
+            professorId: data.professorId ?? schedule.professorId,
+            daysWeek: data.daysWeek ?? schedule.daysWeek,
+            startTime: data.startTime ?? schedule.startTime,
+            endTime: data.endTime ?? schedule.endTime,
+            maxQuota: data.maxQuota ?? schedule.maxQuota,
+            isActive: data.isActive ?? schedule.isActive
+        };
+
+        const allScheduleClasses = await classDAO.get({ recurrentScheduleId: id });
+        const nextDays = nextScheduleData.daysWeek || [];
+        const classesToCancel = allScheduleClasses.filter((classItem) => {
+            const dayOfWeek = new Date(classItem.dateTime).getDay();
+            return !nextDays.includes(dayOfWeek);
+        });
+        const classesToUpdate = allScheduleClasses.filter((classItem) => {
+            const dayOfWeek = new Date(classItem.dateTime).getDay();
+            return nextDays.includes(dayOfWeek);
+        });
+
+        const classIdsToCancel = classesToCancel.map((classItem) => classItem._id);
+        const classIdsToUpdate = classesToUpdate.map((classItem) => classItem._id);
+        const allTouchedClassIds = [...classIdsToCancel, ...classIdsToUpdate];
+
+        const activeReserves = allTouchedClassIds.length > 0
+            ? await reserveModel.find({
+                $or: [
+                    { scheduleId: { $in: allTouchedClassIds } },
+                    { classId: { $in: allTouchedClassIds } }
+                ],
+                status: { $in: ['reserved', 'waitlist'] }
+            })
+            : [];
+
+        const affectedStudentIds = [
+            ...new Set(activeReserves.map((reserve) => reserve.studentId?.toString()).filter(Boolean))
+        ];
+
+        const reservesToCancel = classIdsToCancel.length > 0
+            ? await reserveModel.find({
+                $or: [
+                    { scheduleId: { $in: classIdsToCancel } },
+                    { classId: { $in: classIdsToCancel } }
+                ],
+                status: { $in: ['reserved', 'waitlist'] }
+            })
+            : [];
+
+        const cancelledReservedReserves = reservesToCancel.filter((reserve) => reserve.status === 'reserved');
+        for (const reserve of cancelledReservedReserves) {
+            await membershipModel.updateOne(
+                {
+                    studentId: reserve.studentId,
+                    status: 'active',
+                    usedClassesThisMonth: { $gt: 0 }
+                },
+                { $inc: { usedClassesThisMonth: -1 } }
+            );
+        }
+
+        const cancelledReserves = classIdsToCancel.length > 0
+            ? await reserveModel.updateMany(
+                {
+                    $or: [
+                        { scheduleId: { $in: classIdsToCancel } },
+                        { classId: { $in: classIdsToCancel } }
+                    ],
+                    status: { $in: ['reserved', 'waitlist'] }
+                },
+                { $set: { status: 'cancelled' } }
+            )
+            : { modifiedCount: 0 };
+
+        const deletedRemovedDayClasses = classIdsToCancel.length > 0
+            ? await classDAO.model.deleteMany({ _id: { $in: classIdsToCancel } })
+            : { deletedCount: 0 };
+
+        const updatedSchedule = await recurrentScheduleDAO.update(id, data);
+
+        const classUpdateBase = {
+            name: nextScheduleData.name,
+            classType: nextScheduleData.classType,
+            professorId: nextScheduleData.professorId,
+            maxQuota: nextScheduleData.maxQuota
+        };
+
+        let updatedClasses = 0;
+        let updatedReserves = 0;
+        for (const classItem of classesToUpdate) {
+            const classUpdate = { ...classUpdateBase };
+
+            const [startHour, startMin] = nextScheduleData.startTime.split(':');
+            const nextDateTime = new Date(classItem.dateTime);
+            nextDateTime.setHours(parseInt(startHour), parseInt(startMin), 0, 0);
+            classUpdate.dateTime = nextDateTime;
+
+            const [endHour, endMin] = nextScheduleData.endTime.split(':');
+            const nextEndTime = new Date(classItem.endTime || classItem.dateTime);
+            nextEndTime.setHours(parseInt(endHour), parseInt(endMin), 0, 0);
+            classUpdate.endTime = nextEndTime;
+
+            const updateResult = await classDAO.model.updateOne(
+                { _id: classItem._id },
+                { $set: classUpdate }
+            );
+
+            updatedClasses += updateResult.modifiedCount || 0;
+
+            const reserveUpdateResult = await reserveModel.updateMany(
+                {
+                    $or: [
+                        { scheduleId: classItem._id },
+                        { classId: classItem._id }
+                    ],
+                    status: { $in: ['reserved', 'waitlist'] }
+                },
+                { $set: { date: nextDateTime } }
+            );
+
+            updatedReserves += reserveUpdateResult.modifiedCount || 0;
+        }
+
+        let createdClasses = 0;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        for (let i = 0; i < 14; i++) {
+            const currentDate = new Date(today);
+            currentDate.setDate(today.getDate() + i);
+            const dayOfWeek = currentDate.getDay();
+
+            if (!nextDays.includes(dayOfWeek)) continue;
+
+            const [startHour, startMin] = nextScheduleData.startTime.split(':');
+            const classDateTime = new Date(currentDate);
+            classDateTime.setHours(parseInt(startHour), parseInt(startMin), 0, 0);
+
+            const [endHour, endMin] = nextScheduleData.endTime.split(':');
+            const classEndTime = new Date(currentDate);
+            classEndTime.setHours(parseInt(endHour), parseInt(endMin), 0, 0);
+
+            const existingClass = await classDAO.get({
+                recurrentScheduleId: id,
+                dateTime: classDateTime
+            });
+
+            if (!existingClass || existingClass.length === 0) {
+                await classDAO.save({
+                    name: nextScheduleData.name,
+                    classType: nextScheduleData.classType,
+                    professorId: nextScheduleData.professorId,
+                    recurrentScheduleId: id,
+                    dateTime: classDateTime,
+                    endTime: classEndTime,
+                    maxQuota: nextScheduleData.maxQuota,
+                    occupiedQuota: 0,
+                    isActive: true
+                });
+                createdClasses++;
+            }
+        }
+
+        return {
+            previousSchedule: schedule,
+            schedule: updatedSchedule,
+            updatedClasses,
+            createdClasses,
+            updatedReserves,
+            cancelledReserves: cancelledReserves.modifiedCount || 0,
+            deletedRemovedDayClasses: deletedRemovedDayClasses.deletedCount || 0,
+            affectedStudentIds
+        };
     }
 
     async deleteSchedule(id) {
-        // Eliminamos la plantilla para detener la generación automática
-        return await recurrentScheduleDAO.delete(id);
+        const schedule = await recurrentScheduleDAO.getBy({ _id: id });
+        if (!schedule) {
+            throw new Error('Horario no encontrado.');
+        }
+
+        const classesToDelete = await classDAO.get({ recurrentScheduleId: id });
+        const classIds = classesToDelete.map((classItem) => classItem._id);
+
+        const activeReserves = classIds.length > 0
+            ? await reserveModel.find({
+                $or: [
+                    { scheduleId: { $in: classIds } },
+                    { classId: { $in: classIds } }
+                ],
+                status: { $in: ['reserved', 'waitlist'] }
+            })
+            : [];
+
+        const affectedStudentIds = [
+            ...new Set(activeReserves.map((reserve) => reserve.studentId?.toString()).filter(Boolean))
+        ];
+
+        const cancelledReserves = classIds.length > 0
+            ? await reserveModel.updateMany(
+                {
+                    $or: [
+                        { scheduleId: { $in: classIds } },
+                        { classId: { $in: classIds } }
+                    ],
+                    status: { $in: ['reserved', 'waitlist'] }
+                },
+                { $set: { status: 'cancelled' } }
+            )
+            : { modifiedCount: 0 };
+
+        const deletedClasses = await classDAO.model.deleteMany({ recurrentScheduleId: id });
+        const deletedSchedule = await recurrentScheduleDAO.delete(id);
+
+        return {
+            schedule: deletedSchedule,
+            deletedClasses: deletedClasses.deletedCount || 0,
+            cancelledReserves: cancelledReserves.modifiedCount || 0,
+            affectedStudentIds
+        };
     }
 }

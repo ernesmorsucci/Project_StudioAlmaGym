@@ -3,6 +3,7 @@ import { Clock, Users, CalendarDays, CheckCircle, AlertCircle, X } from 'lucide-
 import api from '../../services/api';
 import useFormValidation from '../../hooks/useFormValidation';
 import { FormInput, FormSelect } from '../FormComponents';
+import { showConfirm } from '../../utils/alerts';
 
 const CreateScheduleForm = ({ onSuccess, onCancel, initialData = null }) => {
     const [professors, setProfessors] = useState([]);
@@ -75,6 +76,19 @@ const CreateScheduleForm = ({ onSuccess, onCancel, initialData = null }) => {
             return;
         }
 
+        if (initialData) {
+            const confirmed = await showConfirm({
+                title: 'Confirmar edición',
+                text: 'Al editar este horario se actualizarán sus clases asignadas. Si quitaste días, las reservas de esos días serán canceladas y se notificará a los alumnos inscriptos.',
+                confirmButtonText: 'Guardar cambios',
+                cancelButtonText: 'Revisar',
+                icon: 'warning',
+                confirmButtonColor: '#E07A5F',
+            });
+
+            if (!confirmed) return;
+        }
+
         try {
             let response;
             if (initialData) {
@@ -84,7 +98,7 @@ const CreateScheduleForm = ({ onSuccess, onCancel, initialData = null }) => {
             }
             
             setMessage({ type: 'success', text: response.data.message });
-            setTimeout(() => { if(onSuccess) onSuccess(); }, 2000);
+            setTimeout(() => { if(onSuccess) onSuccess(); }, 3000);
 
         } catch (error) {
             const errorMsg = error.response?.data?.error || 'Error al crear el horario.';

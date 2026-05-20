@@ -46,6 +46,7 @@ const schema = new mongoose.Schema({
 
 schema.index({ dateTime: 1 });
 schema.index({ professorId: 1, dateTime: 1 });
+schema.index({ recurrentScheduleId: 1 });
 
 const classModel = mongoose.model(collection, schema);
 
