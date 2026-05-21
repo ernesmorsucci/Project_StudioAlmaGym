@@ -22,6 +22,34 @@ import usersRouter from './routes/users.routes.js';
 import holidayRouter from './routes/holiday.routes.js';
 
 const app = express();
+const isProduction = process.env.NODE_ENV === 'production';
+const allowedOrigins = (process.env.FRONTEND_URL || 'http://localhost:5173')
+    .split(',')
+    .map(origin => origin.trim())
+    .filter(Boolean);
+
+const corsOptions = {
+    origin(origin, callback) {
+        if (!origin || allowedOrigins.includes(origin)) {
+            return callback(null, true);
+        }
+
+        return callback(new Error(`Origen no permitido por CORS: ${origin}`));
+    },
+    credentials: true
+};
+
+const cookieOptions = {
+    maxAge: 24 * 60 * 60 * 1000,
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax'
+};
+const clearCookieOptions = {
+    httpOnly: true,
+    secure: isProduction,
+    sameSite: isProduction ? 'none' : 'lax'
+};
 
 // 2. CONEXIÓN EXPLÍCITA A MONGODB (Evita el timeout)
 const MONGO_URI = process.env.MONGO_URI || process.env.MONGO_URL || 'mongodb://127.0.0.1:27017/almagym';
@@ -32,10 +60,7 @@ mongoose.connect(MONGO_URI)
 // 3. CONFIGURACIÓN DE SOCKET.IO
 const httpServer = createServer(app);
 const io = new Server(httpServer, {
-    cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-        credentials: true
-    }
+    cors: corsOptions
 });
 
 export { io };
@@ -47,10 +72,14 @@ app.use(cookieParser());
 //app.use(mongoSanitize());
 
 // 5. CORS
-app.use(cors({
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
-    credentials: true
-}));
+app.use(cors(corsOptions));
+
+app.get('/health', (req, res) => {
+    res.status(200).json({ status: 'ok', service: 'almagym-api' });
+});
+
+app.locals.cookieOptions = cookieOptions;
+app.locals.clearCookieOptions = clearCookieOptions;
 
 
 // 6. ROUTERS

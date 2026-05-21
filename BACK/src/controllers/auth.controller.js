@@ -55,12 +55,7 @@ export const login = async (req, res) => {
 
         const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '24h' });
 
-        res.cookie('almaCookieToken', token, {
-            maxAge: 24 * 60 * 60 * 1000,
-            httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'lax'
-        });
+        res.cookie('almaCookieToken', token, req.app.locals.cookieOptions);
 
         res.status(200).json({ message: "Login exitoso", payload: tokenPayload });
     } catch (error) {
@@ -70,7 +65,7 @@ export const login = async (req, res) => {
 };
 
 export const logout = (req, res) => {
-    res.clearCookie('almaCookieToken');
+    res.clearCookie('almaCookieToken', req.app.locals.clearCookieOptions);
     res.status(200).json({ message: "Sesión cerrada" });
 };
 

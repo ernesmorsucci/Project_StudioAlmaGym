@@ -16,7 +16,7 @@ export const isAuthenticated = (req, res, next) => {
         next();
     } catch (error) {
         console.error("JWT inválido:", error.message);
-        res.clearCookie('almaCookieToken');
+        res.clearCookie('almaCookieToken', req.app.locals.clearCookieOptions);
         return res.status(401).json({ error: "Sesión inválida o expirada." });
     }
 };
