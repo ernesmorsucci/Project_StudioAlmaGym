@@ -46,3 +46,12 @@ Required environment variables:
 The app uses an HTTP-only cookie for auth. In production the frontend and backend must both use HTTPS, and `VITE_API_URL` must point to the backend URL ending in `/api`.
 
 `npm run lint` currently reports pre-existing frontend lint errors. The production build was verified with `npm run build`, so deploys that run only the build command can still pass.
+
+## Blank Frontend Page
+
+If the deployed frontend shows a blank page, check the browser console and verify:
+
+- `VITE_API_URL` is set in the frontend hosting provider, not only in local `.env`.
+- `VITE_API_URL` uses the public HTTPS backend URL and ends with `/api`.
+- `FRONTEND_URL` in the backend matches the public frontend URL exactly.
+- The backend health URL works, for example `https://your-backend-domain/health`.

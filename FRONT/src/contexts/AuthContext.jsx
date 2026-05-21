@@ -8,6 +8,7 @@ export const useAuth = () => useContext(AuthContext);
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [authError, setAuthError] = useState(null);
 
   useEffect(() => {
     // Al recargar la página, preguntamos al backend si la cookie sigue siendo válida
@@ -16,6 +17,9 @@ export const AuthProvider = ({ children }) => {
         const { data } = await api.get('/auth/current');
         setUser(data.payload);
       } catch (error) {
+        if (error.code === 'ECONNABORTED') {
+          setAuthError('No se pudo conectar con el servidor. Revisá VITE_API_URL en el deploy.');
+        }
         setUser(null);
       } finally {
         setLoading(false);
@@ -54,7 +58,21 @@ export const AuthProvider = ({ children }) => {
 
   return (
     <AuthContext.Provider value={{ user, login, logout, register, forgotPassword, resetPassword, loading }}>
-      {!loading && children}
+      {loading ? (
+        <div className="flex min-h-screen items-center justify-center bg-alma-bg px-6 text-center">
+          <div>
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-b-2 border-alma-olive" />
+            <p className="text-sm font-medium text-gray-600">Conectando con Studio Alma...</p>
+          </div>
+        </div>
+      ) : authError ? (
+        <div className="flex min-h-screen items-center justify-center bg-alma-bg px-6 text-center">
+          <div className="max-w-md rounded-lg border border-red-100 bg-white p-6 shadow-sm">
+            <h1 className="mb-2 text-lg font-bold text-red-600">Error de conexión</h1>
+            <p className="text-sm text-gray-600">{authError}</p>
+          </div>
+        </div>
+      ) : children}
     </AuthContext.Provider>
   );
 };
