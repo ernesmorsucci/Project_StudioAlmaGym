@@ -95,6 +95,6 @@ app.use('/api/holidays', holidayRouter);
 startCronJobs();
 // 7. INICIALIZACIÓN DEL SERVIDOR
 const PORT = process.env.PORT || 8080;
-httpServer.listen(PORT, () => {
+httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`🚀 Servidor Studio Alma encendido en el puerto ${PORT}`);
 });
