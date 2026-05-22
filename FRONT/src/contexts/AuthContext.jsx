@@ -18,7 +18,7 @@ export const AuthProvider = ({ children }) => {
         setUser(data.payload);
       } catch (error) {
         if (error.code === 'ECONNABORTED') {
-          setAuthError('No se pudo conectar con el servidor. Revisá VITE_API_URL en el deploy.');
+          setAuthError('No se pudo conectar con el servidor. Revisá la url en el deploy.');
         }
         setUser(null);
       } finally {
