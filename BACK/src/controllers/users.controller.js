@@ -33,8 +33,9 @@ export const createStudentWithMembership = async (req, res) => {
             return res.status(400).json({ status: 'error', error: 'Faltan datos obligatorios del usuario.' });
         }
 
-        if (password.length < 6) {
-            return res.status(400).json({ status: 'error', error: 'La contraseña debe tener al menos 6 caracteres.' });
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d\w\W]{8,}$/;
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({ status: 'error', error: 'La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula y un número.' });
         }
 
         const hashedPassword = await createHash(password);
@@ -128,8 +129,9 @@ export const addUser = async (req, res) => {
             return res.status(400).json({ status: 'error', error: 'El nombre y el correo son obligatorios.' });
         }
 
-        if (password && password.length < 6) {
-            return res.status(400).json({ status: 'error', error: 'La contraseña debe tener al menos 6 caracteres.' });
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d\w\W]{8,}$/;
+        if (password && !passwordRegex.test(password)) {
+            return res.status(400).json({ status: 'error', error: 'La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula y un número.' });
         }
 
         // Armamos el objeto limpio
@@ -176,6 +178,10 @@ export const updateUser = async (req, res) => {
         }
 
         if (password) {
+            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d\w\W]{8,}$/;
+            if (!passwordRegex.test(password)) {
+                return res.status(400).json({ status: 'error', error: 'La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula y un número.' });
+            }
             cleanUpdateData.password = await createHash(password);
         }
 
@@ -324,10 +330,11 @@ export const verifyUpdate = async (req, res) => {
 
         if (updates.password) {
             // 🔥 NUEVA VALIDACIÓN
-            if (updates.password.length < 6) {
-                return res.status(400).json({ status: "error", error: "La nueva contraseña debe tener al menos 6 caracteres." });
+            const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d\w\W]{8,}$/;
+            if (!passwordRegex.test(updates.password)) {
+                return res.status(400).json({ status: "error", error: "La nueva contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula y un número." });
             }
-            updates.password = await createHash(updates.password);
+            dataToUpdate.password = await createHash(updates.password);
         }
 
         // Limpiamos códigos

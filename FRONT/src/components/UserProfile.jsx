@@ -104,6 +104,12 @@ const UserProfile = () => {
                 
             } else if (type === 'password') {
                 if (!securityData.newPassword.trim()) return setLoading(false);
+
+                const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d\w\W]{8,}$/;
+                if (!passwordRegex.test(securityData.newPassword)) {
+                    setLoading(false);
+                    return showError('La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula y un número.');
+                }
                 
                 await api.post('/users/request-update-code', { newEmail: null, changingPassword: true });
                 setPendingSecurityChange({ password: securityData.newPassword });

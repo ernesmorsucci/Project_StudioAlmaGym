@@ -14,8 +14,9 @@ export const register = async (req, res) => {
         const exists = await userService.findByEmail(email);
         if (exists) return res.status(400).json({ error: "El email ya está registrado" });
         
-        if (password.length < 6) {
-            return res.status(400).json({ status: 'error', error: 'La contraseña debe tener al menos 6 caracteres.' });
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d\w\W]{8,}$/;
+        if (!passwordRegex.test(password)) {
+            return res.status(400).json({ status: 'error', error: 'La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula y un número.' });
         }
 
         const newUser = {
@@ -117,6 +118,11 @@ export const resetPassword = async (req, res) => {
 
         if (!user || user.resetCode !== code || new Date() > user.resetCodeExpires) {
             return res.status(400).json({ error: "El código es inválido o ha expirado." });
+        }
+
+        const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[a-zA-Z\d\w\W]{8,}$/;
+        if (!passwordRegex.test(newPassword)) {
+            return res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres, incluir una mayúscula, una minúscula y un número.' });
         }
 
         // Todo correcto: hashear nueva contraseña y limpiar campos de reset
