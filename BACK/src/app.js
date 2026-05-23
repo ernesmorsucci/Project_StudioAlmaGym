@@ -23,7 +23,10 @@ import holidayRouter from './routes/holiday.routes.js';
 
 const app = express();
 const isProduction = process.env.NODE_ENV === 'production';
-const allowedOrigins = ['https://alma-gym-client.onrender.com', 'http://localhost:5173'];
+const allowedOrigins = [
+    process.env.FRONTEND_URL,
+    'http://localhost:5173'
+].filter(Boolean);
 
 const corsOptions = {
     origin(origin, callback) {

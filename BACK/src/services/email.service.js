@@ -3,13 +3,19 @@ import nodemailer from "nodemailer";
 
 export default class EmailService {
     constructor() {
+        this.emailUser = process.env.EMAIL_USER;
+        this.emailPass = process.env.EMAIL_PASS;
         this.transporter = nodemailer.createTransport({
             service: 'gmail', 
             auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASS
+                user: this.emailUser,
+                pass: this.emailPass
             }
         });
+    }
+
+    hasCredentials() {
+        return Boolean(this.emailUser && this.emailPass);
     }
 
     /**
@@ -17,8 +23,13 @@ export default class EmailService {
      */
     async sendNotificationEmail(toEmail, subject, message) {
         try {
+            if (!this.hasCredentials()) {
+                console.error("[Email Service] Faltan EMAIL_USER o EMAIL_PASS en las variables de entorno.");
+                return false;
+            }
+
             await this.transporter.sendMail({
-                from: `"Studio Alma" <${process.env.EMAIL_USER}>`,
+                from: `"Studio Alma" <${this.emailUser}>`,
                 to: toEmail,
                 subject: `🔔 ${subject}`,
                 // 🔥 PLANTILLA RESPONSIVE PROFESIONAL
@@ -77,8 +88,13 @@ export default class EmailService {
      */
     async sendRecoveryCode(toEmail, code) {
         try {
+            if (!this.hasCredentials()) {
+                console.error("[Email Service] Faltan EMAIL_USER o EMAIL_PASS en las variables de entorno.");
+                return false;
+            }
+
             await this.transporter.sendMail({
-                from: `"Studio Alma" <${process.env.EMAIL_USER}>`,
+                from: `"Studio Alma" <${this.emailUser}>`,
                 to: toEmail,
                 subject: "🔐 Código de recuperación de contraseña",
                 html: `

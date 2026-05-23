@@ -286,7 +286,13 @@ export const requestUpdateCode = async (req, res) => {
 
         // 4. Enviamos al correo. Si cambia email, va al nuevo; si cambia pass, va al actual.
         const targetEmail = newEmail ? newEmail : user.email;
-        await emailService.sendRecoveryCode(targetEmail, code);
+        const sent = await emailService.sendRecoveryCode(targetEmail, code);
+        if (!sent) {
+            return res.status(500).json({
+                status: 'error',
+                error: 'No se pudo enviar el código por correo. Revisa la configuración de email del servidor.'
+            });
+        }
 
         res.status(200).json({ status: 'success', message: 'Código de seguridad enviado.' });
     } catch (error) {

@@ -95,7 +95,10 @@ export const forgotPassword = async (req, res) => {
         });
 
         // Enviar por correo
-        await emailService.sendRecoveryCode(email, code);
+        const sent = await emailService.sendRecoveryCode(email, code);
+        if (!sent) {
+            return res.status(500).json({ error: "No se pudo enviar el código por correo. Revisa la configuración de email del servidor." });
+        }
 
         res.status(200).json({ status: "success", message: "Código enviado al correo." });
     } catch (error) {
