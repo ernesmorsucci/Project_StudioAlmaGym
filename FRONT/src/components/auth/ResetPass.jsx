@@ -106,7 +106,7 @@ const ResetPassForm = ({ initialEmail = '' }) => {
           onBlur={handleBlur}
           error={errors.newPassword}
           touched={touched.newPassword}
-          placeholder="Min. 6 caracteres"
+          placeholder="••••••••"
           required
         />
 

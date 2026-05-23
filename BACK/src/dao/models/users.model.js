@@ -64,6 +64,14 @@ const schema = new mongoose.Schema({
     updateCodeExpires: { 
         type: Date, 
         default: null 
+    },
+    resetCode: {
+        type: String,
+        default: null
+    },
+    resetCodeExpires: {
+        type: Date,
+        default: null
     }
 }, { timestamps: true });
 

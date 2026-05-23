@@ -168,7 +168,7 @@ const Auth = () => {
             onBlur={handleBlur}
             error={errors.password}
             touched={touched.password}
-            placeholder="Min. 6 caracteres"
+            placeholder="••••••••"
             required
           />
 

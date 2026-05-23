@@ -32,7 +32,7 @@ authRouter.post("/logout", logout);
 authRouter.get("/current", isAuthenticated, getCurrentUser);
 
 // NUEVAS RUTAS DE RECUPERACIÓN:
-authRouter.post("/forgot-password", forgotPassword); // Paso 1: Enviar email
+authRouter.post("/forgot-password", loginLimiter, forgotPassword); // Paso 1: Enviar email
 authRouter.post("/reset-password", resetPassword);   // Paso 2: Verificar código y cambiar
 
 export default authRouter;

@@ -14,8 +14,8 @@ const NotificationManager = () => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [successMessage, setSuccessMessage] = useState('');
     const [formData, setFormData] = useState({
-        targetType: 'all_students', 
-        targetId: '',               
+        targetType: 'all_students',
+        targetId: '',
         subject: '',
         message: ''
     });
@@ -28,15 +28,15 @@ const NotificationManager = () => {
                     api.get('/users/directory/professors'),
                     api.get('/classes') // 🔥 AHORA BUSCAMOS LAS CLASES REALES
                 ]);
-                
+
                 setStudents(studentsRes.data.payload || []);
                 setProfessors(professorsRes.data.payload || []);
-                
+
                 // 🔥 FILTRO: Solo clases con gente y ordenadas de más recientes a más antiguas
                 const activeClasses = (classesRes.data.payload || [])
                     .filter(c => c.occupiedQuota > 0)
                     .sort((a, b) => new Date(b.dateTime) - new Date(a.dateTime));
-                    
+
                 setClassesList(activeClasses);
             } catch (error) {
                 console.error("Error al cargar datos para notificaciones:", error);
@@ -57,7 +57,7 @@ const NotificationManager = () => {
 
         try {
             let resolvedIds = [];
-            
+
             if (formData.targetType === 'all_students') {
                 resolvedIds = students.map(s => s.id);
             } else if (formData.targetType === 'expired_students') {
@@ -104,8 +104,8 @@ const NotificationManager = () => {
                 resolvedIds: resolvedIds
             };
 
-            await api.post('/notifications', payload); 
-            
+            await api.post('/notifications', payload);
+
             setSuccessMessage(`¡Notificación enviada con éxito a ${resolvedIds.length} persona(s)!`);
             setFormData({ targetType: 'all_students', subject: '', message: '', targetId: '' });
             setTimeout(() => setSuccessMessage(''), 4000);
@@ -138,12 +138,12 @@ const NotificationManager = () => {
 
             <div className="bg-white p-8 rounded-3xl border border-gray-200 shadow-sm">
                 <form onSubmit={handleSendNotification} className="space-y-6">
-                    
+
                     <div className="p-6 bg-gray-50 rounded-2xl border border-gray-100">
                         <label className="block text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-                            <Users className="w-4 h-4 text-alma-olive"/> 1. ¿A quién deseas enviar el mensaje?
+                            <Users className="w-4 h-4 text-alma-olive" /> 1. ¿A quién deseas enviar el mensaje?
                         </label>
-                        <select 
+                        <select
                             value={formData.targetType}
                             onChange={handleTargetTypeChange}
                             className="w-full p-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-alma-olive outline-none bg-white text-gray-700 mb-4"
@@ -158,30 +158,38 @@ const NotificationManager = () => {
 
                         {formData.targetType === 'specific_class' && (
                             <div className="animate-fade-in">
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1"><Calendar className="w-3 h-3"/> Selecciona el horario</label>
-                                <select required value={formData.targetId} onChange={(e) => setFormData({...formData, targetId: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-alma-olive bg-white">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1"><Calendar className="w-3 h-3" /> Selecciona el horario</label>
+                                <select required value={formData.targetId} onChange={(e) => setFormData({ ...formData, targetId: e.target.value })} className="w-full p-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-alma-olive bg-white">
                                     <option value="">Selecciona una clase con alumnos...</option>
-                                    {/* 🔥 FORMATO VISUAL MEJORADO */}
-                                    {classesList.map(c => {
-                                        const dateObj = new Date(c.dateTime);
-                                        let dateStr = dateObj.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
-                                        dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
-                                        const timeStr = dateObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
-                                        
-                                        return (
-                                            <option key={c._id} value={c._id}>
-                                                {c.name} - {dateStr} a las {timeStr} hs ({c.occupiedQuota} inscriptos)
-                                            </option>
-                                        )
-                                    })}
+                                    {/* 🔥 FILTRO + FORMATO VISUAL */}
+                                    {classesList
+                                        .filter(c => {
+                                            // Calculamos el límite de hace 24 horas en milisegundos
+                                            const limite24hs = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                                            const fechaClase = new Date(c.dateTime);
+                                            return fechaClase >= limite24hs; // Pasa si es del futuro o de ayer/hoy
+                                        })
+                                        .map(c => {
+                                            const dateObj = new Date(c.dateTime);
+                                            let dateStr = dateObj.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric', month: 'short' });
+                                            dateStr = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+                                            const timeStr = dateObj.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+
+                                            return (
+                                                <option key={c._id} value={c._id}>
+                                                    {c.name} - {dateStr} a las {timeStr} hs ({c.occupiedQuota} inscriptos)
+                                                </option>
+                                            )
+                                        })
+                                    }
                                 </select>
                             </div>
                         )}
 
                         {formData.targetType === 'specific_user' && (
                             <div className="animate-fade-in">
-                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1"><User className="w-3 h-3"/> Buscar persona</label>
-                                <select required value={formData.targetId} onChange={(e) => setFormData({...formData, targetId: e.target.value})} className="w-full p-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-alma-olive bg-white">
+                                <label className="block text-xs font-bold text-gray-500 uppercase mb-2 flex items-center gap-1"><User className="w-3 h-3" /> Buscar persona</label>
+                                <select required value={formData.targetId} onChange={(e) => setFormData({ ...formData, targetId: e.target.value })} className="w-full p-3 border border-gray-300 rounded-xl outline-none focus:ring-2 focus:ring-alma-olive bg-white">
                                     <option value="">Selecciona la persona...</option>
                                     <optgroup label="Alumnos">
                                         {students.map(s => <option key={s.id} value={s.id}>{s.name} - {s.email}</option>)}
@@ -196,40 +204,40 @@ const NotificationManager = () => {
 
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-                            <AlertCircle className="w-4 h-4 text-alma-olive"/> 2. Asunto del mensaje
+                            <AlertCircle className="w-4 h-4 text-alma-olive" /> 2. Asunto del mensaje
                         </label>
-                        <input 
-                            type="text" 
+                        <input
+                            type="text"
                             required
                             maxLength="100"
                             placeholder="Ej: Recordatorio de Vencimiento de Cuota"
-                            value={formData.subject} 
-                            onChange={(e) => setFormData({...formData, subject: e.target.value})} 
-                            className="w-full p-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-alma-olive outline-none" 
+                            value={formData.subject}
+                            onChange={(e) => setFormData({ ...formData, subject: e.target.value })}
+                            className="w-full p-3.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-alma-olive outline-none"
                         />
                     </div>
 
                     <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2 flex items-center gap-2">
-                            <MessageSquare className="w-4 h-4 text-alma-olive"/> 3. Contenido de la notificación
+                            <MessageSquare className="w-4 h-4 text-alma-olive" /> 3. Contenido de la notificación
                         </label>
-                        <textarea 
+                        <textarea
                             required
                             rows="5"
                             placeholder="Escribe el mensaje aquí. Todos los destinatarios seleccionados recibirán esta notificación en su panel..."
-                            value={formData.message} 
-                            onChange={(e) => setFormData({...formData, message: e.target.value})} 
-                            className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-alma-olive outline-none resize-none" 
+                            value={formData.message}
+                            onChange={(e) => setFormData({ ...formData, message: e.target.value })}
+                            className="w-full p-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-alma-olive outline-none resize-none"
                         />
                     </div>
 
                     <div className="pt-4 flex justify-end border-t border-gray-100">
-                        <button 
+                        <button
                             type="submit"
-                            disabled={isSubmitting || (['specific_class', 'specific_user'].includes(formData.targetType) && !formData.targetId)} 
+                            disabled={isSubmitting || (['specific_class', 'specific_user'].includes(formData.targetType) && !formData.targetId)}
                             className="bg-alma-olive text-white px-8 py-3.5 rounded-xl font-bold shadow-md hover:bg-opacity-90 disabled:opacity-50 transition-all flex items-center gap-2"
                         >
-                            {isSubmitting ? 'Procesando envío...' : <><Send className="w-5 h-5"/> Enviar Notificación</>}
+                            {isSubmitting ? 'Procesando envío...' : <><Send className="w-5 h-5" /> Enviar Notificación</>}
                         </button>
                     </div>
                 </form>

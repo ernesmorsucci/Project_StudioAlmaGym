@@ -6,7 +6,9 @@ import mongoose from 'mongoose'; // 👈 LIBRERÍA RESTAURADA
 import { createServer } from 'http'; 
 import { Server } from 'socket.io';  
 import { startCronJobs } from './utils/cron.js';
-//import mongoSanitize from 'express-mongo-sanitize';
+import mongoSanitize from 'express-mongo-sanitize';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
 
 // 1. IMPORTAMOS ROUTERS
 import authRouter from './routes/auth.routes.js';
@@ -66,10 +68,25 @@ const io = new Server(httpServer, {
 export { io };
 
 // 4. MIDDLEWARES GLOBALES
+app.use(helmet());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser()); 
-//app.use(mongoSanitize());
+
+// Custom mongoSanitize para Express 5 (evita el crash de req.query)
+app.use((req, res, next) => {
+    if (req.body) req.body = mongoSanitize.sanitize(req.body, { replaceWith: '_' });
+    if (req.params) req.params = mongoSanitize.sanitize(req.params, { replaceWith: '_' });
+    next();
+});
+
+// 4.1 LIMITADOR DE TASA (Rate Limiting) Global
+const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 minutos
+    limit: 800, // Límite alto para navegación normal (evita ataques DDos)
+    message: { error: "Límite de peticiones excedido, por favor intenta de nuevo más tarde." }
+});
+app.use('/api/', apiLimiter);
 
 // 5. CORS
 app.use(cors(corsOptions));

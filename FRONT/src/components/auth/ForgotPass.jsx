@@ -45,7 +45,8 @@ const ForgotPass = ({ onSuccess }) => {
         onSuccess?.(formValues.email);
       }, 3000);
     } catch (err) {
-      setBackendError('Ocurrió un error. Intenta de nuevo más tarde.');
+      const realError = err.response?.data?.error || (err.code === 'ECONNABORTED' ? 'El servidor tardó mucho en responder, pero el correo podría haberse enviado.' : 'Ocurrió un error. Intenta de nuevo más tarde.');
+      setBackendError(realError);
     }
   };
 
