@@ -1,8 +1,10 @@
 import axios from 'axios';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api';
+
 const api = axios.create({
-  baseURL: "https://project-studioalmagym.onrender.com/api" || "http://localhost:8080/api",
-  withCredentials: true, // ¡Súper importante! Esto permite que el navegador guarde la cookie JWT
+  baseURL: API_URL,
+  withCredentials: true, //  para guardar la cookie JWT
   timeout: 10000
 });
 
